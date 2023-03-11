@@ -1,2 +1,2 @@
 # canAnalyzer
-Can analyzer development base on BUSMASTER API.
+Can analyzer development with python base on BUSMASTER API.
