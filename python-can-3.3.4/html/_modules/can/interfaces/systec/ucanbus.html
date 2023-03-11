@@ -1,0 +1,352 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>can.interfaces.systec.ucanbus &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css" />
+    
+    <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <script src="../../../../_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../../can.html" accesskey="U">can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.systec.ucanbus</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for can.interfaces.systec.ucanbus</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">threading</span> <span class="kn">import</span> <span class="n">Event</span>
+
+<span class="kn">from</span> <span class="nn">can</span> <span class="kn">import</span> <span class="n">BusABC</span><span class="p">,</span> <span class="n">BusState</span><span class="p">,</span> <span class="n">Message</span>
+
+<span class="kn">from</span> <span class="nn">.constants</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">.structures</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">.ucan</span> <span class="kn">import</span> <span class="n">UcanServer</span>
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;can.systec&#39;</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">Ucan</span><span class="p">(</span><span class="n">UcanServer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Wrapper around UcanServer to read messages with timeout using events.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">Ucan</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_msg_received_event</span> <span class="o">=</span> <span class="n">Event</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">can_msg_received_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_msg_received_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">read_can_msg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="n">timeout</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_msg_received_event</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_msg_pending</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">PendingFlags</span><span class="o">.</span><span class="n">PENDING_FLAG_RX_DLL</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_msg_received_event</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="n">timeout</span><span class="p">):</span>
+                <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">(</span><span class="n">Ucan</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">read_can_msg</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="UcanBus"><a class="viewcode-back" href="../../../../interfaces/systec.html#can.interfaces.systec.ucanbus.UcanBus">[docs]</a><span class="k">class</span> <span class="nc">UcanBus</span><span class="p">(</span><span class="n">BusABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The CAN Bus implemented for the SYSTEC interface.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">BITRATES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="mi">10000</span><span class="p">:</span> <span class="n">Baudrate</span><span class="o">.</span><span class="n">BAUD_10kBit</span><span class="p">,</span>
+        <span class="mi">20000</span><span class="p">:</span> <span class="n">Baudrate</span><span class="o">.</span><span class="n">BAUD_20kBit</span><span class="p">,</span>
+        <span class="mi">50000</span><span class="p">:</span> <span class="n">Baudrate</span><span class="o">.</span><span class="n">BAUD_50kBit</span><span class="p">,</span>
+        <span class="mi">100000</span><span class="p">:</span> <span class="n">Baudrate</span><span class="o">.</span><span class="n">BAUD_100kBit</span><span class="p">,</span>
+        <span class="mi">125000</span><span class="p">:</span> <span class="n">Baudrate</span><span class="o">.</span><span class="n">BAUD_125kBit</span><span class="p">,</span>
+        <span class="mi">250000</span><span class="p">:</span> <span class="n">Baudrate</span><span class="o">.</span><span class="n">BAUD_250kBit</span><span class="p">,</span>
+        <span class="mi">500000</span><span class="p">:</span> <span class="n">Baudrate</span><span class="o">.</span><span class="n">BAUD_500kBit</span><span class="p">,</span>
+        <span class="mi">800000</span><span class="p">:</span> <span class="n">Baudrate</span><span class="o">.</span><span class="n">BAUD_800kBit</span><span class="p">,</span>
+        <span class="mi">1000000</span><span class="p">:</span> <span class="n">Baudrate</span><span class="o">.</span><span class="n">BAUD_1MBit</span>
+    <span class="p">}</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">can_filters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param int channel:</span>
+<span class="sd">            The Channel id to create this bus with.</span>
+
+<span class="sd">        :param list can_filters:</span>
+<span class="sd">            See :meth:`can.BusABC.set_filters`.</span>
+
+<span class="sd">        Backend Configuration</span>
+
+<span class="sd">        :param int bitrate:</span>
+<span class="sd">            Channel bitrate in bit/s.</span>
+<span class="sd">            Default is 500000.</span>
+
+<span class="sd">        :param int device_number:</span>
+<span class="sd">            The device number of the USB-CAN.</span>
+<span class="sd">            Valid values: 0 through 254. Special value 255 is reserved to detect the first connected device (should only</span>
+<span class="sd">            be used, in case only one module is connected to the computer).</span>
+<span class="sd">            Default is 255.</span>
+
+<span class="sd">        :param can.bus.BusState state:</span>
+<span class="sd">            BusState of the channel.</span>
+<span class="sd">            Default is ACTIVE.</span>
+
+<span class="sd">        :param bool receive_own_messages:</span>
+<span class="sd">            If messages transmitted should also be received back.</span>
+<span class="sd">            Default is False.</span>
+
+<span class="sd">        :param int rx_buffer_entries:</span>
+<span class="sd">            The maximum number of entries in the receive buffer.</span>
+<span class="sd">            Default is 4096.</span>
+
+<span class="sd">        :param int tx_buffer_entries:</span>
+<span class="sd">            The maximum number of entries in the transmit buffer.</span>
+<span class="sd">            Default is 4096.</span>
+
+<span class="sd">        :raises ValueError:</span>
+<span class="sd">            If invalid input parameter were passed.</span>
+
+<span class="sd">        :raises can.CanError:</span>
+<span class="sd">            If hardware or CAN interface initialization failed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ucan</span> <span class="o">=</span> <span class="n">Ucan</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;The SYSTEC ucan library has not been initialized.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">channel</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">channel</span><span class="p">)</span>
+        <span class="n">device_number</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;device_number&#39;</span><span class="p">,</span> <span class="n">ANY_MODULE</span><span class="p">))</span>
+
+        <span class="c1"># configuration options</span>
+        <span class="n">bitrate</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;bitrate&#39;</span><span class="p">,</span> <span class="mi">500000</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">bitrate</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">BITRATES</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid bitrate </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">bitrate</span><span class="p">))</span>
+
+        <span class="n">state</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;state&#39;</span><span class="p">,</span> <span class="n">BusState</span><span class="o">.</span><span class="n">ACTIVE</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="n">BusState</span><span class="o">.</span><span class="n">ACTIVE</span> <span class="ow">or</span> <span class="n">state</span> <span class="ow">is</span> <span class="n">BusState</span><span class="o">.</span><span class="n">PASSIVE</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_state</span> <span class="o">=</span> <span class="n">state</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;BusState must be Active or Passive&quot;</span><span class="p">)</span>
+
+        <span class="c1"># get parameters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_params</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="n">Mode</span><span class="o">.</span><span class="n">MODE_NORMAL</span> <span class="o">|</span>
+                    <span class="p">(</span><span class="n">Mode</span><span class="o">.</span><span class="n">MODE_TX_ECHO</span> <span class="k">if</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;receive_own_messages&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span> <span class="o">|</span>
+                    <span class="p">(</span><span class="n">Mode</span><span class="o">.</span><span class="n">MODE_LISTEN_ONLY</span> <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="n">BusState</span><span class="o">.</span><span class="n">PASSIVE</span> <span class="k">else</span> <span class="mi">0</span><span class="p">),</span>
+            <span class="s2">&quot;BTR&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">BITRATES</span><span class="p">[</span><span class="n">bitrate</span><span class="p">]</span>
+        <span class="p">}</span>
+        <span class="c1"># get extra parameters</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rx_buffer_entries&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_params</span><span class="p">[</span><span class="s2">&quot;rx_buffer_entries&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rx_buffer_entries&quot;</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;tx_buffer_entries&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_params</span><span class="p">[</span><span class="s2">&quot;tx_buffer_entries&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;tx_buffer_entries&quot;</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ucan</span><span class="o">.</span><span class="n">init_hardware</span><span class="p">(</span><span class="n">device_number</span><span class="o">=</span><span class="n">device_number</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ucan</span><span class="o">.</span><span class="n">init_can</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_params</span><span class="p">)</span>
+        <span class="n">hw_info_ex</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ucan</span><span class="o">.</span><span class="n">get_hardware_info</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">channel_info</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">, S/N </span><span class="si">%s</span><span class="s1">, CH </span><span class="si">%s</span><span class="s1">, BTR </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ucan</span><span class="o">.</span><span class="n">get_product_code_message</span><span class="p">(</span><span class="n">hw_info_ex</span><span class="o">.</span><span class="n">product_code</span><span class="p">),</span>
+            <span class="n">hw_info_ex</span><span class="o">.</span><span class="n">serial</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ucan</span><span class="o">.</span><span class="n">get_baudrate_message</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">BITRATES</span><span class="p">[</span><span class="n">bitrate</span><span class="p">])</span>
+        <span class="p">)</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">UcanBus</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">channel</span><span class="o">=</span><span class="n">channel</span><span class="p">,</span> <span class="n">can_filters</span><span class="o">=</span><span class="n">can_filters</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_recv_internal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="p">):</span>
+        <span class="n">message</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ucan</span><span class="o">.</span><span class="n">read_can_msg</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">timeout</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">message</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span>
+
+        <span class="n">msg</span> <span class="o">=</span> <span class="n">Message</span><span class="p">(</span><span class="n">timestamp</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">message</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">time</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1000.0</span><span class="p">,</span>
+                      <span class="n">is_remote_frame</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">message</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">frame_format</span> <span class="o">&amp;</span> <span class="n">MsgFrameFormat</span><span class="o">.</span><span class="n">MSG_FF_RTR</span><span class="p">),</span>
+                      <span class="n">is_extended_id</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">message</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">frame_format</span> <span class="o">&amp;</span> <span class="n">MsgFrameFormat</span><span class="o">.</span><span class="n">MSG_FF_EXT</span><span class="p">),</span>
+                      <span class="n">arbitration_id</span><span class="o">=</span><span class="n">message</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                      <span class="n">dlc</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">message</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">data</span><span class="p">),</span>
+                      <span class="n">data</span><span class="o">=</span><span class="n">message</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">msg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_filtered</span>
+
+<div class="viewcode-block" id="UcanBus.send"><a class="viewcode-back" href="../../../../interfaces/systec.html#can.interfaces.systec.ucanbus.UcanBus.send">[docs]</a>    <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Sends one CAN message.</span>
+
+<span class="sd">        When a transmission timeout is set the firmware tries to send</span>
+<span class="sd">        a message within this timeout. If it could not be sent the firmware sets</span>
+<span class="sd">        the &quot;auto delete&quot; state. Within this state all transmit CAN messages for</span>
+<span class="sd">        this channel will be deleted automatically for not blocking the other channel.</span>
+
+<span class="sd">        :param can.Message msg:</span>
+<span class="sd">            The CAN message.</span>
+
+<span class="sd">        :param float timeout:</span>
+<span class="sd">            Transmit timeout in seconds (value 0 switches off the &quot;auto delete&quot;)</span>
+
+<span class="sd">        :raises can.CanError:</span>
+<span class="sd">            If the message could not be sent.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">timeout</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ucan</span><span class="o">.</span><span class="n">set_tx_timeout</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">timeout</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">))</span>
+
+        <span class="n">message</span> <span class="o">=</span> <span class="n">CanMsg</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">arbitration_id</span><span class="p">,</span>
+                         <span class="n">MsgFrameFormat</span><span class="o">.</span><span class="n">MSG_FF_STD</span> <span class="o">|</span>
+                         <span class="p">(</span><span class="n">MsgFrameFormat</span><span class="o">.</span><span class="n">MSG_FF_EXT</span> <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_extended_id</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span> <span class="o">|</span>
+                         <span class="p">(</span><span class="n">MsgFrameFormat</span><span class="o">.</span><span class="n">MSG_FF_RTR</span> <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_remote_frame</span> <span class="k">else</span> <span class="mi">0</span><span class="p">),</span>
+                         <span class="n">msg</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ucan</span><span class="o">.</span><span class="n">write_can_msg</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">,</span> <span class="p">[</span><span class="n">message</span><span class="p">])</span></div>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_detect_available_configs</span><span class="p">():</span>
+        <span class="n">configs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">is_used</span><span class="p">,</span> <span class="n">hw_info_ex</span><span class="p">,</span> <span class="n">init_info</span> <span class="ow">in</span> <span class="n">Ucan</span><span class="o">.</span><span class="n">enumerate_hardware</span><span class="p">():</span>
+                <span class="n">configs</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s1">&#39;interface&#39;</span><span class="p">:</span> <span class="s1">&#39;systec&#39;</span><span class="p">,</span>
+                                <span class="s1">&#39;channel&#39;</span><span class="p">:</span> <span class="n">Channel</span><span class="o">.</span><span class="n">CHANNEL_CH0</span><span class="p">,</span>
+                                <span class="s1">&#39;device_number&#39;</span><span class="p">:</span> <span class="n">hw_info_ex</span><span class="o">.</span><span class="n">device_number</span><span class="p">})</span>
+                <span class="k">if</span> <span class="n">Ucan</span><span class="o">.</span><span class="n">check_support_two_channel</span><span class="p">(</span><span class="n">hw_info_ex</span><span class="p">):</span>
+                    <span class="n">configs</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s1">&#39;interface&#39;</span><span class="p">:</span> <span class="s1">&#39;systec&#39;</span><span class="p">,</span>
+                                    <span class="s1">&#39;channel&#39;</span><span class="p">:</span> <span class="n">Channel</span><span class="o">.</span><span class="n">CHANNEL_CH1</span><span class="p">,</span>
+                                    <span class="s1">&#39;device_number&#39;</span><span class="p">:</span> <span class="n">hw_info_ex</span><span class="o">.</span><span class="n">device_number</span><span class="p">})</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;The SYSTEC ucan library has not been initialized.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">configs</span>
+
+    <span class="k">def</span> <span class="nf">_apply_filters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filters</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">filters</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">filters</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">can_id</span> <span class="o">=</span> <span class="n">filters</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;can_id&#39;</span><span class="p">]</span>
+            <span class="n">can_mask</span> <span class="o">=</span> <span class="n">filters</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;can_mask&#39;</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ucan</span><span class="o">.</span><span class="n">set_acceptance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">,</span> <span class="n">can_mask</span><span class="p">,</span> <span class="n">can_id</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_is_filtered</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Hardware filtering on ID 0x</span><span class="si">%X</span><span class="s1">, mask 0x</span><span class="si">%X</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">can_id</span><span class="p">,</span> <span class="n">can_mask</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ucan</span><span class="o">.</span><span class="n">set_acceptance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_is_filtered</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Hardware filtering has been disabled&#39;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="UcanBus.flush_tx_buffer"><a class="viewcode-back" href="../../../../interfaces/systec.html#can.interfaces.systec.ucanbus.UcanBus.flush_tx_buffer">[docs]</a>    <span class="k">def</span> <span class="nf">flush_tx_buffer</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Flushes the transmit buffer.</span>
+
+<span class="sd">        :raises can.CanError:</span>
+<span class="sd">            If flushing of the transmit buffer failed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Flushing transmit buffer&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ucan</span><span class="o">.</span><span class="n">reset_can</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">,</span> <span class="n">ResetFlags</span><span class="o">.</span><span class="n">RESET_ONLY_TX_BUFF</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="UcanBus.create_filter"><a class="viewcode-back" href="../../../../interfaces/systec.html#can.interfaces.systec.ucanbus.UcanBus.create_filter">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">create_filter</span><span class="p">(</span><span class="n">extended</span><span class="p">,</span> <span class="n">from_id</span><span class="p">,</span> <span class="n">to_id</span><span class="p">,</span> <span class="n">rtr_only</span><span class="p">,</span> <span class="n">rtr_too</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculates AMR and ACR using CAN-ID as parameter.</span>
+
+<span class="sd">        :param bool extended:</span>
+<span class="sd">            if True parameters from_id and to_id contains 29-bit CAN-ID</span>
+
+<span class="sd">        :param int from_id:</span>
+<span class="sd">            first CAN-ID which should be received</span>
+
+<span class="sd">        :param int to_id:</span>
+<span class="sd">            last CAN-ID which should be received</span>
+
+<span class="sd">        :param bool rtr_only:</span>
+<span class="sd">            if True only RTR-Messages should be received, and rtr_too will be ignored</span>
+
+<span class="sd">        :param bool rtr_too:</span>
+<span class="sd">            if True CAN data frames and RTR-Messages should be received</span>
+
+<span class="sd">        :return: Returns list with one filter containing a &quot;can_id&quot;, a &quot;can_mask&quot; and &quot;extended&quot; key.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[{</span>
+            <span class="s2">&quot;can_id&quot;</span><span class="p">:</span> <span class="n">Ucan</span><span class="o">.</span><span class="n">calculate_acr</span><span class="p">(</span><span class="n">extended</span><span class="p">,</span> <span class="n">from_id</span><span class="p">,</span> <span class="n">to_id</span><span class="p">,</span> <span class="n">rtr_only</span><span class="p">,</span> <span class="n">rtr_too</span><span class="p">),</span>
+            <span class="s2">&quot;can_mask&quot;</span><span class="p">:</span> <span class="n">Ucan</span><span class="o">.</span><span class="n">calculate_amr</span><span class="p">(</span><span class="n">extended</span><span class="p">,</span> <span class="n">from_id</span><span class="p">,</span> <span class="n">to_id</span><span class="p">,</span> <span class="n">rtr_only</span><span class="p">,</span> <span class="n">rtr_too</span><span class="p">),</span>
+            <span class="s2">&quot;extended&quot;</span><span class="p">:</span> <span class="n">extended</span>
+        <span class="p">}]</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span>
+
+    <span class="nd">@state</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_state</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">BusState</span><span class="o">.</span><span class="n">ERROR</span> <span class="ow">and</span> <span class="p">(</span><span class="n">new_state</span> <span class="ow">is</span> <span class="n">BusState</span><span class="o">.</span><span class="n">ACTIVE</span> <span class="ow">or</span> <span class="n">new_state</span> <span class="ow">is</span> <span class="n">BusState</span><span class="o">.</span><span class="n">PASSIVE</span><span class="p">):</span>
+            <span class="c1"># close the CAN channel</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ucan</span><span class="o">.</span><span class="n">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+            <span class="c1"># set mode</span>
+            <span class="k">if</span> <span class="n">new_state</span> <span class="ow">is</span> <span class="n">BusState</span><span class="o">.</span><span class="n">ACTIVE</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_params</span><span class="p">[</span><span class="s2">&quot;mode&quot;</span><span class="p">]</span> <span class="o">&amp;=</span> <span class="o">~</span><span class="n">Mode</span><span class="o">.</span><span class="n">MODE_LISTEN_ONLY</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_params</span><span class="p">[</span><span class="s2">&quot;mode&quot;</span><span class="p">]</span> <span class="o">|=</span> <span class="n">Mode</span><span class="o">.</span><span class="n">MODE_LISTEN_ONLY</span>
+            <span class="c1"># reinitialize CAN channel</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ucan</span><span class="o">.</span><span class="n">init_can</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_params</span><span class="p">)</span>
+
+<div class="viewcode-block" id="UcanBus.shutdown"><a class="viewcode-back" href="../../../../interfaces/systec.html#can.interfaces.systec.ucanbus.UcanBus.shutdown">[docs]</a>    <span class="k">def</span> <span class="nf">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Shuts down all CAN interfaces and hardware interface.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ucan</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span></div></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../../can.html" >can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.systec.ucanbus</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

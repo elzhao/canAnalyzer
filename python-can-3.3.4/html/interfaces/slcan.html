@@ -1,0 +1,211 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>CAN over Serial / SLCAN &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
+    
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="IXXAT Virtual CAN Interface" href="ixxat.html" />
+    <link rel="prev" title="CAN over Serial" href="serial.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="ixxat.html" title="IXXAT Virtual CAN Interface"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="serial.html" title="CAN over Serial"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../interfaces.html" accesskey="U">CAN Interface Modules</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">CAN over Serial / SLCAN</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="can-over-serial-slcan">
+<span id="slcan"></span><h1>CAN over Serial / SLCAN<a class="headerlink" href="#can-over-serial-slcan" title="Permalink to this heading">¶</a></h1>
+<p>A text based interface: compatible to slcan-interfaces (slcan ASCII protocol) should also support LAWICEL direct.
+These interfaces can also be used with socketcan and slcand with Linux.
+This driver directly uses either the local or remote serial port, it makes slcan-compatible interfaces usable with Windows also.
+Remote serial ports will be specified via special URL. Both raw TCP sockets as also RFC2217 ports are supported.</p>
+<p>Usage: use <code class="docutils literal notranslate"><span class="pre">port</span> <span class="pre">or</span> <span class="pre">URL[&#64;baurate]</span></code> to open the device.
+For example use <code class="docutils literal notranslate"><span class="pre">/dev/ttyUSB0&#64;115200</span></code> or <code class="docutils literal notranslate"><span class="pre">COM4&#64;9600</span></code> for local serial ports and
+<code class="docutils literal notranslate"><span class="pre">socket://192.168.254.254:5000</span></code> or <code class="docutils literal notranslate"><span class="pre">rfc2217://192.168.254.254:5000</span></code> for remote ports.</p>
+<section id="supported-devices">
+<h2>Supported devices<a class="headerlink" href="#supported-devices" title="Permalink to this heading">¶</a></h2>
+<div class="admonition-todo admonition" id="id1">
+<p class="admonition-title">Todo</p>
+<p>Document this.</p>
+</div>
+</section>
+<section id="bus">
+<h2>Bus<a class="headerlink" href="#bus" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.interfaces.slcan.slcanBus">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.interfaces.slcan.</span></span><span class="sig-name descname"><span class="pre">slcanBus</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ttyBaudrate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">115200</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bitrate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">btr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sleep_after_open</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rtscts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/slcan.html#slcanBus"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.slcan.slcanBus" title="Permalink to this definition">¶</a></dt>
+<dd><p>slcan interface</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – if both <em>bitrate</em> and <em>btr</em> are set</p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>channel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – port of underlying serial or usb device (e.g. /dev/ttyUSB0, COM8, …)
+Must not be empty.</p></li>
+<li><p><strong>ttyBaudrate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – baudrate of underlying serial or usb device</p></li>
+<li><p><strong>bitrate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – Bitrate in bit/s</p></li>
+<li><p><strong>btr</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – BTR register value to set custom can speed</p></li>
+<li><p><strong>poll_interval</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – Poll interval in seconds when reading messages</p></li>
+<li><p><strong>sleep_after_open</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – Time to wait in seconds after opening serial connection</p></li>
+<li><p><strong>rtscts</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – turn hardware handshake (RTS/CTS) on and off</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="can.interfaces.slcan.slcanBus.send">
+<span class="sig-name descname"><span class="pre">send</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/slcan.html#slcanBus.send"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.slcan.slcanBus.send" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transmit a message to the CAN bus.</p>
+<p>Override this method to enable the transmit path.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>msg</strong> (<a class="reference internal" href="../message.html#can.Message" title="can.Message"><em>can.Message</em></a>) – A message object.</p></li>
+<li><p><strong>timeout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em> or </em><em>None</em>) – If &gt; 0, wait up to this many seconds for message to be ACK’ed or
+for transmit queue to be ready depending on driver implementation.
+If timeout is exceeded, an exception will be raised.
+Might not be supported by all interfaces.
+None blocks indefinitely.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="../api.html#can.CanError" title="can.CanError"><strong>can.CanError</strong></a> – if the message could not be sent</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.interfaces.slcan.slcanBus.shutdown">
+<span class="sig-name descname"><span class="pre">shutdown</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/slcan.html#slcanBus.shutdown"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.slcan.slcanBus.shutdown" title="Permalink to this definition">¶</a></dt>
+<dd><p>Called to carry out any interface specific cleanup required
+in shutting down a bus.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="internals">
+<h2>Internals<a class="headerlink" href="#internals" title="Permalink to this heading">¶</a></h2>
+<div class="admonition-todo admonition" id="id2">
+<p class="admonition-title">Todo</p>
+<p>Document the internals of slcan interface.</p>
+</div>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="../index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">CAN over Serial / SLCAN</a><ul>
+<li><a class="reference internal" href="#supported-devices">Supported devices</a></li>
+<li><a class="reference internal" href="#bus">Bus</a><ul>
+<li><a class="reference internal" href="#can.interfaces.slcan.slcanBus"><code class="docutils literal notranslate"><span class="pre">slcanBus</span></code></a><ul>
+<li><a class="reference internal" href="#can.interfaces.slcan.slcanBus.send"><code class="docutils literal notranslate"><span class="pre">slcanBus.send()</span></code></a></li>
+<li><a class="reference internal" href="#can.interfaces.slcan.slcanBus.shutdown"><code class="docutils literal notranslate"><span class="pre">slcanBus.shutdown()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#internals">Internals</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="serial.html"
+                          title="previous chapter">CAN over Serial</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="ixxat.html"
+                          title="next chapter">IXXAT Virtual CAN Interface</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/interfaces/slcan.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="ixxat.html" title="IXXAT Virtual CAN Interface"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="serial.html" title="CAN over Serial"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../interfaces.html" >CAN Interface Modules</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">CAN over Serial / SLCAN</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

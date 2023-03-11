@@ -1,0 +1,403 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Message &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Listeners" href="listeners.html" />
+    <link rel="prev" title="Bus" href="bus.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="listeners.html" title="Listeners"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="bus.html" title="Bus"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="api.html" accesskey="U">Library API</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Message</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="module-can">
+<span id="message"></span><h1>Message<a class="headerlink" href="#module-can" title="Permalink to this heading">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.Message">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">Message</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">timestamp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">arbitration_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_extended_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_remote_frame</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_error_frame</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dlc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_fd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bitrate_switch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error_state_indicator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extended_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/message.html#Message"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.Message" title="Permalink to this definition">¶</a></dt>
+<dd><p>The <a class="reference internal" href="#can.Message" title="can.Message"><code class="xref py py-class docutils literal notranslate"><span class="pre">Message</span></code></a> object is used to represent CAN messages for
+sending, receiving and other purposes like converting between different
+logging formats.</p>
+<p>Messages can use extended identifiers, be remote or error frames, contain
+data and may be associated to a channel.</p>
+<p>Messages are always compared by identity and never by value, because that
+may introduce unexpected behaviour. See also <code class="xref py py-meth docutils literal notranslate"><span class="pre">equals()</span></code>.</p>
+<p><a class="reference external" href="https://docs.python.org/3/library/copy.html#copy.copy" title="(in Python v3.11)"><code class="xref py py-func docutils literal notranslate"><span class="pre">copy()</span></code></a>/<a class="reference external" href="https://docs.python.org/3/library/copy.html#copy.deepcopy" title="(in Python v3.11)"><code class="xref py py-func docutils literal notranslate"><span class="pre">deepcopy()</span></code></a> is supported as well.</p>
+<p>Messages do not support “dynamic” attributes, meaning any others than the
+documented ones, since it uses <code class="xref py py-attr docutils literal notranslate"><span class="pre">__slots__</span></code>.</p>
+<p>To create a message object, simply provide any of the below attributes
+together with additional parameters as keyword arguments to the constructor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>check</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – By default, the constructor of this class does not strictly check the input.
+Thus, the caller must prevent the creation of invalid messages or
+set this parameter to <cite>True</cite>, to raise an Error on invalid inputs.
+Possible problems include the <cite>dlc</cite> field not matching the length of <cite>data</cite>
+or creating a message with both <cite>is_remote_frame</cite> and <cite>is_error_frame</cite> set to <cite>True</cite>.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – iff <cite>check</cite> is set to <cite>True</cite> and one or more arguments were invalid</p>
+</dd>
+</dl>
+<p>One can instantiate a <a class="reference internal" href="#can.Message" title="can.Message"><code class="xref py py-class docutils literal notranslate"><span class="pre">Message</span></code></a> defining data, and optional
+arguments for all attributes such as arbitration ID, flags, and timestamp.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">can</span> <span class="kn">import</span> <span class="n">Message</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">test</span> <span class="o">=</span> <span class="n">Message</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">test</span><span class="o">.</span><span class="n">data</span>
+<span class="go">bytearray(b&#39;\x01\x02\x03\x04\x05&#39;)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">test</span><span class="o">.</span><span class="n">dlc</span>
+<span class="go">5</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>
+<span class="go">Timestamp:        0.000000    ID: 00000000    010    DLC: 5    01 02 03 04 05</span>
+</pre></div>
+</div>
+<p>The <a class="reference internal" href="#can.Message.arbitration_id" title="can.Message.arbitration_id"><code class="xref py py-attr docutils literal notranslate"><span class="pre">arbitration_id</span></code></a> field in a CAN message may be either
+11 bits (standard addressing, CAN 2.0A) or 29 bits (extended addressing, CAN
+2.0B) in length, and <code class="docutils literal notranslate"><span class="pre">python-can</span></code> exposes this difference with the
+<a class="reference internal" href="#can.Message.is_extended_id" title="can.Message.is_extended_id"><code class="xref py py-attr docutils literal notranslate"><span class="pre">is_extended_id</span></code></a> attribute.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="can.Message.timestamp">
+<span class="sig-name descname"><span class="pre">timestamp</span></span><a class="headerlink" href="#can.Message.timestamp" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a></p>
+</dd>
+</dl>
+<p>The timestamp field in a CAN message is a floating point number representing when
+the message was received since the epoch in seconds. Where possible this will be
+timestamped in hardware.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="can.Message.arbitration_id">
+<span class="sig-name descname"><span class="pre">arbitration_id</span></span><a class="headerlink" href="#can.Message.arbitration_id" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+</dd>
+</dl>
+<p>The frame identifier used for arbitration on the bus.</p>
+<p>The arbitration ID can take an int between 0 and the
+maximum value allowed depending on the <code class="docutils literal notranslate"><span class="pre">is_extended_id</span></code> flag
+(either 2<sup>11</sup> - 1 for 11-bit IDs, or
+2<sup>29</sup> - 1 for 29-bit identifiers).</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">Message</span><span class="p">(</span><span class="n">is_extended_id</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">arbitration_id</span><span class="o">=</span><span class="mi">100</span><span class="p">))</span>
+<span class="go">Timestamp:        0.000000        ID: 0064    S        DLC: 0</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="can.Message.data">
+<span class="sig-name descname"><span class="pre">data</span></span><a class="headerlink" href="#can.Message.data" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#bytearray" title="(in Python v3.11)">bytearray</a></p>
+</dd>
+</dl>
+<p>The data parameter of a CAN message is exposed as a <strong>bytearray</strong>
+with length between 0 and 8.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">example_data</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">Message</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">example_data</span><span class="p">))</span>
+<span class="go">Timestamp:        0.000000    ID: 00000000    X        DLC: 3    01 02 03</span>
+</pre></div>
+</div>
+<p>A <a class="reference internal" href="#can.Message" title="can.Message"><code class="xref py py-class docutils literal notranslate"><span class="pre">Message</span></code></a> can also be created with bytes, or lists of ints:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">m1</span> <span class="o">=</span> <span class="n">Message</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="p">[</span><span class="mh">0x64</span><span class="p">,</span> <span class="mh">0x65</span><span class="p">,</span> <span class="mh">0x61</span><span class="p">,</span> <span class="mh">0x64</span><span class="p">,</span> <span class="mh">0x62</span><span class="p">,</span> <span class="mh">0x65</span><span class="p">,</span> <span class="mh">0x65</span><span class="p">,</span> <span class="mh">0x66</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">m1</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+<span class="go">bytearray(b&#39;deadbeef&#39;)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">m2</span> <span class="o">=</span> <span class="n">Message</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="sa">b</span><span class="s1">&#39;deadbeef&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">m2</span><span class="o">.</span><span class="n">data</span>
+<span class="go">bytearray(b&#39;deadbeef&#39;)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="can.Message.dlc">
+<span class="sig-name descname"><span class="pre">dlc</span></span><a class="headerlink" href="#can.Message.dlc" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+</dd>
+</dl>
+<p>The <abbr title="Data Length Code">DLC</abbr> parameter of a CAN message is an integer
+between 0 and 8 representing the frame payload length.</p>
+<p>In the case of a CAN FD message, this indicates the data length in
+number of bytes.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">m</span> <span class="o">=</span> <span class="n">Message</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">m</span><span class="o">.</span><span class="n">dlc</span>
+<span class="go">3</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The DLC value does not necessarily define the number of bytes of data
+in a message.</p>
+<p>Its purpose varies depending on the frame type - for data frames it
+represents the amount of data contained in the message, in remote
+frames it represents the amount of data being requested.</p>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="can.Message.channel">
+<span class="sig-name descname"><span class="pre">channel</span></span><a class="headerlink" href="#can.Message.channel" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)">str</a> or <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a> or None</p>
+</dd>
+</dl>
+<p>This might store the channel from which the message came.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="can.Message.is_extended_id">
+<span class="sig-name descname"><span class="pre">is_extended_id</span></span><a class="headerlink" href="#can.Message.is_extended_id" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a></p>
+</dd>
+</dl>
+<p>This flag controls the size of the <a class="reference internal" href="#can.Message.arbitration_id" title="can.Message.arbitration_id"><code class="xref py py-attr docutils literal notranslate"><span class="pre">arbitration_id</span></code></a> field.
+Previously this was exposed as <cite>id_type</cite>.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">Message</span><span class="p">(</span><span class="n">is_extended_id</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+<span class="go">Timestamp:        0.000000        ID: 0000    S        DLC: 0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">Message</span><span class="p">(</span><span class="n">is_extended_id</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+<span class="go">Timestamp:        0.000000    ID: 00000000    X        DLC: 0</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The initializer argument and attribute <code class="docutils literal notranslate"><span class="pre">extended_id</span></code> has been deprecated in favor of
+<code class="docutils literal notranslate"><span class="pre">is_extended_id</span></code>, but will continue to work for the <code class="docutils literal notranslate"><span class="pre">3.x</span></code> release series.</p>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="can.Message.is_error_frame">
+<span class="sig-name descname"><span class="pre">is_error_frame</span></span><a class="headerlink" href="#can.Message.is_error_frame" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a></p>
+</dd>
+</dl>
+<p>This boolean parameter indicates if the message is an error frame or not.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">Message</span><span class="p">(</span><span class="n">is_error_frame</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+<span class="go">Timestamp:        0.000000    ID: 00000000    X E      DLC: 0</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="can.Message.is_remote_frame">
+<span class="sig-name descname"><span class="pre">is_remote_frame</span></span><a class="headerlink" href="#can.Message.is_remote_frame" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a></p>
+</dd>
+</dl>
+<p>This boolean attribute indicates if the message is a remote frame or a data frame, and
+modifies the bit in the CAN message’s flags field indicating this.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">Message</span><span class="p">(</span><span class="n">is_remote_frame</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+<span class="go">Timestamp:        0.000000    ID: 00000000    X   R    DLC: 0</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="can.Message.is_fd">
+<span class="sig-name descname"><span class="pre">is_fd</span></span><a class="headerlink" href="#can.Message.is_fd" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a></p>
+</dd>
+</dl>
+<p>Indicates that this message is a CAN FD message.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="can.Message.bitrate_switch">
+<span class="sig-name descname"><span class="pre">bitrate_switch</span></span><a class="headerlink" href="#can.Message.bitrate_switch" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a></p>
+</dd>
+</dl>
+<p>If this is a CAN FD message, this indicates that a higher bitrate
+was used for the data transmission.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="can.Message.error_state_indicator">
+<span class="sig-name descname"><span class="pre">error_state_indicator</span></span><a class="headerlink" href="#can.Message.error_state_indicator" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a></p>
+</dd>
+</dl>
+<p>If this is a CAN FD message, this indicates an error active state.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.Message.__str__">
+<span class="sig-name descname"><span class="pre">__str__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/message.html#Message.__str__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.Message.__str__" title="Permalink to this definition">¶</a></dt>
+<dd><p>A string representation of a CAN message:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">can</span> <span class="kn">import</span> <span class="n">Message</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">test</span> <span class="o">=</span> <span class="n">Message</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>
+<span class="go">Timestamp:        0.000000    ID: 00000000    X        DLC: 0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">test2</span> <span class="o">=</span> <span class="n">Message</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">test2</span><span class="p">)</span>
+<span class="go">Timestamp:        0.000000    ID: 00000000    X        DLC: 5    01 02 03 04 05</span>
+</pre></div>
+</div>
+<p>The fields in the printed message are (in order):</p>
+<ul class="simple">
+<li><p>timestamp,</p></li>
+<li><p>arbitration ID,</p></li>
+<li><p>flags,</p></li>
+<li><p>dlc,</p></li>
+<li><p>and data.</p></li>
+</ul>
+<p>The flags field is represented as one, two or three letters:</p>
+<ul class="simple">
+<li><p>X if the <a class="reference internal" href="#can.Message.is_extended_id" title="can.Message.is_extended_id"><code class="xref py py-attr docutils literal notranslate"><span class="pre">is_extended_id</span></code></a> attribute is set, otherwise S,</p></li>
+<li><p>E if the <a class="reference internal" href="#can.Message.is_error_frame" title="can.Message.is_error_frame"><code class="xref py py-attr docutils literal notranslate"><span class="pre">is_error_frame</span></code></a> attribute is set,</p></li>
+<li><p>R if the <a class="reference internal" href="#can.Message.is_remote_frame" title="can.Message.is_remote_frame"><code class="xref py py-attr docutils literal notranslate"><span class="pre">is_remote_frame</span></code></a> attribute is set.</p></li>
+</ul>
+<p>The arbitration ID field is represented as either a four or eight digit
+hexadecimal number depending on the length of the arbitration ID
+(11-bit or 29-bit).</p>
+<p>Each of the bytes in the data field (when present) are represented as
+two-digit hexadecimal numbers.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Message</a><ul>
+<li><a class="reference internal" href="#can.Message"><code class="docutils literal notranslate"><span class="pre">Message</span></code></a><ul>
+<li><a class="reference internal" href="#can.Message.timestamp"><code class="docutils literal notranslate"><span class="pre">Message.timestamp</span></code></a></li>
+<li><a class="reference internal" href="#can.Message.arbitration_id"><code class="docutils literal notranslate"><span class="pre">Message.arbitration_id</span></code></a></li>
+<li><a class="reference internal" href="#can.Message.data"><code class="docutils literal notranslate"><span class="pre">Message.data</span></code></a></li>
+<li><a class="reference internal" href="#can.Message.dlc"><code class="docutils literal notranslate"><span class="pre">Message.dlc</span></code></a></li>
+<li><a class="reference internal" href="#can.Message.channel"><code class="docutils literal notranslate"><span class="pre">Message.channel</span></code></a></li>
+<li><a class="reference internal" href="#can.Message.is_extended_id"><code class="docutils literal notranslate"><span class="pre">Message.is_extended_id</span></code></a></li>
+<li><a class="reference internal" href="#can.Message.is_error_frame"><code class="docutils literal notranslate"><span class="pre">Message.is_error_frame</span></code></a></li>
+<li><a class="reference internal" href="#can.Message.is_remote_frame"><code class="docutils literal notranslate"><span class="pre">Message.is_remote_frame</span></code></a></li>
+<li><a class="reference internal" href="#can.Message.is_fd"><code class="docutils literal notranslate"><span class="pre">Message.is_fd</span></code></a></li>
+<li><a class="reference internal" href="#can.Message.bitrate_switch"><code class="docutils literal notranslate"><span class="pre">Message.bitrate_switch</span></code></a></li>
+<li><a class="reference internal" href="#can.Message.error_state_indicator"><code class="docutils literal notranslate"><span class="pre">Message.error_state_indicator</span></code></a></li>
+<li><a class="reference internal" href="#can.Message.__str__"><code class="docutils literal notranslate"><span class="pre">Message.__str__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="bus.html"
+                          title="previous chapter">Bus</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="listeners.html"
+                          title="next chapter">Listeners</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/message.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="listeners.html" title="Listeners"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="bus.html" title="Bus"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="api.html" >Library API</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Message</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

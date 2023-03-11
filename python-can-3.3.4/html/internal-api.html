@@ -1,0 +1,415 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Internal API &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="CAN Interface Modules" href="interfaces.html" />
+    <link rel="prev" title="Broadcast Manager" href="bcm.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="interfaces.html" title="CAN Interface Modules"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="bcm.html" title="Broadcast Manager"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="api.html" accesskey="U">Library API</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Internal API</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="internal-api">
+<span id="internalapi"></span><h1>Internal API<a class="headerlink" href="#internal-api" title="Permalink to this heading">¶</a></h1>
+<p>Here we document the odds and ends that are more helpful for creating your own interfaces
+or listeners but generally shouldn’t be required to interact with python-can.</p>
+<section id="extending-the-busabc-class">
+<span id="businternals"></span><h2>Extending the <code class="docutils literal notranslate"><span class="pre">BusABC</span></code> class<a class="headerlink" href="#extending-the-busabc-class" title="Permalink to this heading">¶</a></h2>
+<dl class="simple">
+<dt>Concrete implementations <strong>must</strong> implement the following:</dt><dd><ul class="simple">
+<li><p><a class="reference internal" href="bus.html#can.BusABC.send" title="can.BusABC.send"><code class="xref py py-meth docutils literal notranslate"><span class="pre">send()</span></code></a> to send individual messages</p></li>
+<li><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">_recv_internal()</span></code> to receive individual messages
+(see note below!)</p></li>
+<li><p>set the <a class="reference internal" href="bus.html#can.BusABC.channel_info" title="can.BusABC.channel_info"><code class="xref py py-attr docutils literal notranslate"><span class="pre">channel_info</span></code></a> attribute to a string describing
+the underlying bus and/or channel</p></li>
+</ul>
+</dd>
+<dt>They <strong>might</strong> implement the following:</dt><dd><ul class="simple">
+<li><p><a class="reference internal" href="bus.html#can.BusABC.flush_tx_buffer" title="can.BusABC.flush_tx_buffer"><code class="xref py py-meth docutils literal notranslate"><span class="pre">flush_tx_buffer()</span></code></a> to allow discarding any
+messages yet to be sent</p></li>
+<li><p><a class="reference internal" href="bus.html#can.BusABC.shutdown" title="can.BusABC.shutdown"><code class="xref py py-meth docutils literal notranslate"><span class="pre">shutdown()</span></code></a> to override how the bus should
+shut down</p></li>
+<li><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">_send_periodic_internal()</span></code> to override the software based
+periodic sending and push it down to the kernel or hardware.</p></li>
+<li><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">_apply_filters()</span></code> to apply efficient filters
+to lower level systems like the OS kernel or hardware.</p></li>
+<li><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">_detect_available_configs()</span></code> to allow the interface
+to report which configurations are currently available for new
+connections.</p></li>
+<li><p><a class="reference internal" href="bus.html#can.BusABC.state" title="can.BusABC.state"><code class="xref py py-meth docutils literal notranslate"><span class="pre">state()</span></code></a> property to allow reading and/or changing
+the bus state.</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><em>TL;DR</em>: Only override <code class="xref py py-meth docutils literal notranslate"><span class="pre">_recv_internal()</span></code>,
+never <a class="reference internal" href="bus.html#can.BusABC.recv" title="can.BusABC.recv"><code class="xref py py-meth docutils literal notranslate"><span class="pre">recv()</span></code></a> directly.</p>
+<p>Previously, concrete bus classes had to override <a class="reference internal" href="bus.html#can.BusABC.recv" title="can.BusABC.recv"><code class="xref py py-meth docutils literal notranslate"><span class="pre">recv()</span></code></a>
+directly instead of <code class="xref py py-meth docutils literal notranslate"><span class="pre">_recv_internal()</span></code>, but that has
+changed to allow the abstract base class to handle in-software message
+filtering as a fallback. All internal interfaces now implement that new
+behaviour. Older (custom) interfaces might still be implemented like that
+and thus might not provide message filtering:</p>
+</div>
+<p>Concrete instances are usually created by <a class="reference internal" href="bus.html#can.Bus" title="can.Bus"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.Bus</span></code></a> which takes the users
+configuration into account.</p>
+<section id="bus-internals">
+<h3>Bus Internals<a class="headerlink" href="#bus-internals" title="Permalink to this heading">¶</a></h3>
+<p>Several methods are not documented in the main <a class="reference internal" href="bus.html#can.BusABC" title="can.BusABC"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.BusABC</span></code></a>
+as they are primarily useful for library developers as opposed to
+library users. This is the entire ABC bus class with all internal
+methods:</p>
+<dl class="py class">
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">BusABC</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">can_filters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/bus.html#BusABC"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>The CAN Bus Abstract Base Class that serves as the basis
+for all concrete interfaces.</p>
+<p>This class may be used as an iterator over the received messages.</p>
+<p>Construct and open a CAN bus instance of the specified type.</p>
+<p>Subclasses should call though this method with all given parameters
+as it handles generic tasks like applying filters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>channel</strong> – The can interface identifier. Expected type is backend dependent.</p></li>
+<li><p><strong>can_filters</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a>) – See <a class="reference internal" href="bus.html#can.BusABC.set_filters" title="can.BusABC.set_filters"><code class="xref py py-meth docutils literal notranslate"><span class="pre">set_filters()</span></code></a> for details.</p></li>
+<li><p><strong>kwargs</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – Any backend dependent configurations are passed in this dictionary</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+<section id="about-the-io-module">
+<h2>About the IO module<a class="headerlink" href="#about-the-io-module" title="Permalink to this heading">¶</a></h2>
+<p>Handling of the different file formats is implemented in <code class="xref py py-mod docutils literal notranslate"><span class="pre">can.io</span></code>.
+Each file/IO type is within a separate module and ideally implements both a <em>Reader</em> and a <em>Writer</em>.
+The reader usually extends <a class="reference internal" href="#can.io.generic.BaseIOHandler" title="can.io.generic.BaseIOHandler"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.io.generic.BaseIOHandler</span></code></a>, while
+the writer often additionally extends <a class="reference internal" href="listeners.html#can.Listener" title="can.Listener"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.Listener</span></code></a>,
+to be able to be passed directly to a <a class="reference internal" href="api.html#can.Notifier" title="can.Notifier"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.Notifier</span></code></a>.</p>
+<section id="adding-support-for-new-file-formats">
+<h3>Adding support for new file formats<a class="headerlink" href="#adding-support-for-new-file-formats" title="Permalink to this heading">¶</a></h3>
+<p>This assumes that you want to add a new file format, called <em>canstore</em>.
+Ideally add both reading and writing support for the new file format, although this is not strictly required.</p>
+<ol class="arabic simple">
+<li><p>Create a new module: <em>can/io/canstore.py</em>
+(<em>or</em> simply copy some existing one like <em>can/io/csv.py</em>)</p></li>
+<li><p>Implement a reader <code class="docutils literal notranslate"><span class="pre">CanstoreReader</span></code> (which often extends <a class="reference internal" href="#can.io.generic.BaseIOHandler" title="can.io.generic.BaseIOHandler"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.io.generic.BaseIOHandler</span></code></a>, but does not have to).
+Besides from a constructor, only <code class="docutils literal notranslate"><span class="pre">__iter__(self)</span></code> needs to be implemented.</p></li>
+<li><p>Implement a writer <code class="docutils literal notranslate"><span class="pre">CanstoreWriter</span></code> (which often extends <a class="reference internal" href="#can.io.generic.BaseIOHandler" title="can.io.generic.BaseIOHandler"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.io.generic.BaseIOHandler</span></code></a> and <a class="reference internal" href="listeners.html#can.Listener" title="can.Listener"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.Listener</span></code></a>, but does not have to).
+Besides from a constructor, only <code class="docutils literal notranslate"><span class="pre">on_message_received(self,</span> <span class="pre">msg)</span></code> needs to be implemented.</p></li>
+<li><p>Add a case to <code class="docutils literal notranslate"><span class="pre">can.io.player.LogReader</span></code>’s <code class="docutils literal notranslate"><span class="pre">__new__()</span></code>.</p></li>
+<li><p>Document the two new classes (and possibly additional helpers) with docstrings and comments.
+Please mention features and limitations of the implementation.</p></li>
+<li><p>Add a short section to the bottom of <em>doc/listeners.rst</em>.</p></li>
+<li><p>Add tests where appropriate, for example by simply adding a test case called
+<cite>class TestCanstoreFileFormat(ReaderWriterTest)</cite> to <em>test/logformats_test.py</em>.
+That should already handle all of the general testing.
+Just follow the way the other tests in there do it.</p></li>
+<li><p>Add imports to <em>can/__init__py</em> and <em>can/io/__init__py</em> so that the
+new classes can be simply imported as <em>from can import CanstoreReader, CanstoreWriter</em>.</p></li>
+</ol>
+</section>
+<section id="module-can.io.generic">
+<span id="io-utilities"></span><h3>IO Utilities<a class="headerlink" href="#module-can.io.generic" title="Permalink to this heading">¶</a></h3>
+<p>Contains a generic class for file IO.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.io.generic.BaseIOHandler">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.io.generic.</span></span><span class="sig-name descname"><span class="pre">BaseIOHandler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'rt'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/generic.html#BaseIOHandler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.io.generic.BaseIOHandler" title="Permalink to this definition">¶</a></dt>
+<dd><p>A generic file handler that can be used for reading and writing.</p>
+<p>Can be used as a context manager.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Attr file-like file<span class="colon">:</span></dt>
+<dd class="field-odd"><p>the file-like object that is kept internally, or None if none
+was opened</p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>file</strong> – a path-like object to open a file, a file-like object
+to be used as a file or <cite>None</cite> to not use a file at all</p></li>
+<li><p><strong>mode</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – the mode that should be used to open the file, see
+<a class="reference external" href="https://docs.python.org/3/library/functions.html#open" title="(in Python v3.11)"><code class="xref py py-func docutils literal notranslate"><span class="pre">open()</span></code></a>, ignored if <em>file</em> is <cite>None</cite></p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+<section id="module-can.util">
+<span id="other-utilities"></span><h2>Other Utilities<a class="headerlink" href="#module-can.util" title="Permalink to this heading">¶</a></h2>
+<p>Utilities and configuration file parsing.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="can.util.channel2int">
+<span class="sig-prename descclassname"><span class="pre">can.util.</span></span><span class="sig-name descname"><span class="pre">channel2int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/util.html#channel2int"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.util.channel2int" title="Permalink to this definition">¶</a></dt>
+<dd><p>Try to convert the channel to an integer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>channel</strong> – Channel string (e.g. can0, CAN1) or integer</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Channel integer or <cite>None</cite> if unsuccessful</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="can.util.dlc2len">
+<span class="sig-prename descclassname"><span class="pre">can.util.</span></span><span class="sig-name descname"><span class="pre">dlc2len</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dlc</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/util.html#dlc2len"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.util.dlc2len" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate the data length from DLC.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>dlc</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – DLC (0-15)</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Data length in number of bytes (0-64)</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="can.util.len2dlc">
+<span class="sig-prename descclassname"><span class="pre">can.util.</span></span><span class="sig-name descname"><span class="pre">len2dlc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">length</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/util.html#len2dlc"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.util.len2dlc" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate the DLC from data length.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>length</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – Length in number of bytes (0-64)</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>DLC (0-15)</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="can.util.load_config">
+<span class="sig-prename descclassname"><span class="pre">can.util.</span></span><span class="sig-name descname"><span class="pre">load_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">context</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/util.html#load_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.util.load_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a dict with configuration details which is loaded from (in this order):</p>
+<ul class="simple">
+<li><p>config</p></li>
+<li><p>can.rc</p></li>
+<li><p>Environment variables CAN_INTERFACE, CAN_CHANNEL, CAN_BITRATE</p></li>
+<li><p>Config files <code class="docutils literal notranslate"><span class="pre">/etc/can.conf</span></code> or <code class="docutils literal notranslate"><span class="pre">~/.can</span></code> or <code class="docutils literal notranslate"><span class="pre">~/.canrc</span></code>
+where the latter may add or replace values of the former.</p></li>
+</ul>
+<p>Interface can be any of the strings from <code class="docutils literal notranslate"><span class="pre">can.VALID_INTERFACES</span></code> for example:
+kvaser, socketcan, pcan, usb2can, ixxat, nican, virtual.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The key <code class="docutils literal notranslate"><span class="pre">bustype</span></code> is copied to <code class="docutils literal notranslate"><span class="pre">interface</span></code> if that one is missing
+and does never appear in the result.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> – Optional path to config file.</p></li>
+<li><p><strong>config</strong> – A dict which may set the ‘interface’, and/or the ‘channel’, or neither.
+It may set other values that are passed through.</p></li>
+<li><p><strong>context</strong> – Extra ‘context’ pass to config sources. This can be use to section
+other than ‘default’ in the configuration file.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>A config dictionary that should contain ‘interface’ &amp; ‘channel’:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s1">&#39;interface&#39;</span><span class="p">:</span> <span class="s1">&#39;python-can backend interface to use&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;channel&#39;</span><span class="p">:</span> <span class="s1">&#39;default channel to use&#39;</span><span class="p">,</span>
+    <span class="c1"># possibly more</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Note <code class="docutils literal notranslate"><span class="pre">None</span></code> will be used if all the options are exhausted without
+finding a value.</p>
+<p>All unused values are passed from <code class="docutils literal notranslate"><span class="pre">config</span></code> over to this.</p>
+</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p>NotImplementedError if the <code class="docutils literal notranslate"><span class="pre">interface</span></code> isn’t recognized</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="can.util.load_environment_config">
+<span class="sig-prename descclassname"><span class="pre">can.util.</span></span><span class="sig-name descname"><span class="pre">load_environment_config</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/util.html#load_environment_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.util.load_environment_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads config dict from environmental variables (if set):</p>
+<ul class="simple">
+<li><p>CAN_INTERFACE</p></li>
+<li><p>CAN_CHANNEL</p></li>
+<li><p>CAN_BITRATE</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="can.util.load_file_config">
+<span class="sig-prename descclassname"><span class="pre">can.util.</span></span><span class="sig-name descname"><span class="pre">load_file_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">section</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/util.html#load_file_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.util.load_file_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads configuration from file with following content:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">default</span><span class="p">]</span>
+<span class="n">interface</span> <span class="o">=</span> <span class="n">socketcan</span>
+<span class="n">channel</span> <span class="o">=</span> <span class="n">can0</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> – path to config file. If not specified, several sensible
+default locations are tried depending on platform.</p></li>
+<li><p><strong>section</strong> – name of the section to read configuration from.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="can.util.set_logging_level">
+<span class="sig-prename descclassname"><span class="pre">can.util.</span></span><span class="sig-name descname"><span class="pre">set_logging_level</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">level_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/util.html#set_logging_level"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.util.set_logging_level" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the logging level for the “can” logger.
+Expects one of: ‘critical’, ‘error’, ‘warning’, ‘info’, ‘debug’, ‘subdebug’</p>
+</dd></dl>
+
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Internal API</a><ul>
+<li><a class="reference internal" href="#extending-the-busabc-class">Extending the <code class="docutils literal notranslate"><span class="pre">BusABC</span></code> class</a><ul>
+<li><a class="reference internal" href="#bus-internals">Bus Internals</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#about-the-io-module">About the IO module</a><ul>
+<li><a class="reference internal" href="#adding-support-for-new-file-formats">Adding support for new file formats</a></li>
+<li><a class="reference internal" href="#module-can.io.generic">IO Utilities</a><ul>
+<li><a class="reference internal" href="#can.io.generic.BaseIOHandler"><code class="docutils literal notranslate"><span class="pre">BaseIOHandler</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#module-can.util">Other Utilities</a><ul>
+<li><a class="reference internal" href="#can.util.channel2int"><code class="docutils literal notranslate"><span class="pre">channel2int()</span></code></a></li>
+<li><a class="reference internal" href="#can.util.dlc2len"><code class="docutils literal notranslate"><span class="pre">dlc2len()</span></code></a></li>
+<li><a class="reference internal" href="#can.util.len2dlc"><code class="docutils literal notranslate"><span class="pre">len2dlc()</span></code></a></li>
+<li><a class="reference internal" href="#can.util.load_config"><code class="docutils literal notranslate"><span class="pre">load_config()</span></code></a></li>
+<li><a class="reference internal" href="#can.util.load_environment_config"><code class="docutils literal notranslate"><span class="pre">load_environment_config()</span></code></a></li>
+<li><a class="reference internal" href="#can.util.load_file_config"><code class="docutils literal notranslate"><span class="pre">load_file_config()</span></code></a></li>
+<li><a class="reference internal" href="#can.util.set_logging_level"><code class="docutils literal notranslate"><span class="pre">set_logging_level()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="bcm.html"
+                          title="previous chapter">Broadcast Manager</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="interfaces.html"
+                          title="next chapter">CAN Interface Modules</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/internal-api.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="interfaces.html" title="CAN Interface Modules"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="bcm.html" title="Broadcast Manager"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="api.html" >Library API</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Internal API</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

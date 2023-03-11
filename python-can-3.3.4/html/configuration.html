@@ -1,0 +1,262 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Configuration &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Library API" href="api.html" />
+    <link rel="prev" title="Installation" href="installation.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="api.html" title="Library API"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="installation.html" title="Installation"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">python-can 3.3.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Configuration</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="configuration">
+<h1>Configuration<a class="headerlink" href="#configuration" title="Permalink to this heading">¶</a></h1>
+<p>Usually this library is used with a particular CAN interface, this can be
+specified in code, read from configuration files or environment variables.</p>
+<p>See <a class="reference internal" href="internal-api.html#can.util.load_config" title="can.util.load_config"><code class="xref py py-func docutils literal notranslate"><span class="pre">can.util.load_config()</span></code></a> for implementation.</p>
+<section id="in-code">
+<h2>In Code<a class="headerlink" href="#in-code" title="Permalink to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">can</span></code> object exposes an <code class="docutils literal notranslate"><span class="pre">rc</span></code> dictionary which can be used to set
+the <strong>interface</strong> and <strong>channel</strong> before importing from <code class="docutils literal notranslate"><span class="pre">can.interfaces</span></code>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">can</span>
+<span class="n">can</span><span class="o">.</span><span class="n">rc</span><span class="p">[</span><span class="s1">&#39;interface&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;socketcan&#39;</span>
+<span class="n">can</span><span class="o">.</span><span class="n">rc</span><span class="p">[</span><span class="s1">&#39;channel&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;vcan0&#39;</span>
+<span class="n">can</span><span class="o">.</span><span class="n">rc</span><span class="p">[</span><span class="s1">&#39;bitrate&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">500000</span>
+<span class="kn">from</span> <span class="nn">can.interface</span> <span class="kn">import</span> <span class="n">Bus</span>
+
+<span class="n">bus</span> <span class="o">=</span> <span class="n">Bus</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>You can also specify the interface and channel for each Bus instance:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">can</span>
+
+<span class="n">bus</span> <span class="o">=</span> <span class="n">can</span><span class="o">.</span><span class="n">interface</span><span class="o">.</span><span class="n">Bus</span><span class="p">(</span><span class="n">bustype</span><span class="o">=</span><span class="s1">&#39;socketcan&#39;</span><span class="p">,</span> <span class="n">channel</span><span class="o">=</span><span class="s1">&#39;vcan0&#39;</span><span class="p">,</span> <span class="n">bitrate</span><span class="o">=</span><span class="mi">500000</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="configuration-file">
+<h2>Configuration File<a class="headerlink" href="#configuration-file" title="Permalink to this heading">¶</a></h2>
+<p>On Linux systems the config file is searched in the following paths:</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">~/can.conf</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">/etc/can.conf</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">$HOME/.can</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">$HOME/.canrc</span></code></p></li>
+</ol>
+<p>On Windows systems the config file is searched in the following paths:</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">~/can.conf</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">can.ini</span></code> (current working directory)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">$APPDATA/can.ini</span></code></p></li>
+</ol>
+<p>The configuration file sets the default interface and channel:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">default</span><span class="p">]</span>
+<span class="n">interface</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">the</span> <span class="n">name</span> <span class="n">of</span> <span class="n">the</span> <span class="n">interface</span> <span class="n">to</span> <span class="n">use</span><span class="o">&gt;</span>
+<span class="n">channel</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">the</span> <span class="n">channel</span> <span class="n">to</span> <span class="n">use</span> <span class="n">by</span> <span class="n">default</span><span class="o">&gt;</span>
+<span class="n">bitrate</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">the</span> <span class="n">bitrate</span> <span class="ow">in</span> <span class="n">bits</span><span class="o">/</span><span class="n">s</span> <span class="n">to</span> <span class="n">use</span> <span class="n">by</span> <span class="n">default</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p>The configuration can also contain additional sections (or context):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">default</span><span class="p">]</span>
+<span class="n">interface</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">the</span> <span class="n">name</span> <span class="n">of</span> <span class="n">the</span> <span class="n">interface</span> <span class="n">to</span> <span class="n">use</span><span class="o">&gt;</span>
+<span class="n">channel</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">the</span> <span class="n">channel</span> <span class="n">to</span> <span class="n">use</span> <span class="n">by</span> <span class="n">default</span><span class="o">&gt;</span>
+<span class="n">bitrate</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">the</span> <span class="n">bitrate</span> <span class="ow">in</span> <span class="n">bits</span><span class="o">/</span><span class="n">s</span> <span class="n">to</span> <span class="n">use</span> <span class="n">by</span> <span class="n">default</span><span class="o">&gt;</span>
+
+<span class="p">[</span><span class="n">HS</span><span class="p">]</span>
+<span class="c1"># All the values from the &#39;default&#39; section are inherited</span>
+<span class="n">channel</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">the</span> <span class="n">channel</span> <span class="n">to</span> <span class="n">use</span><span class="o">&gt;</span>
+<span class="n">bitrate</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">the</span> <span class="n">bitrate</span> <span class="ow">in</span> <span class="n">bits</span><span class="o">/</span><span class="n">s</span> <span class="n">to</span> <span class="n">use</span><span class="o">.</span> <span class="n">i</span><span class="o">.</span><span class="n">e</span><span class="o">.</span> <span class="mi">500000</span><span class="o">&gt;</span>
+
+<span class="p">[</span><span class="n">MS</span><span class="p">]</span>
+<span class="c1"># All the values from the &#39;default&#39; section are inherited</span>
+<span class="n">channel</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">the</span> <span class="n">channel</span> <span class="n">to</span> <span class="n">use</span><span class="o">&gt;</span>
+<span class="n">bitrate</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">the</span> <span class="n">bitrate</span> <span class="ow">in</span> <span class="n">bits</span><span class="o">/</span><span class="n">s</span> <span class="n">to</span> <span class="n">use</span><span class="o">.</span> <span class="n">i</span><span class="o">.</span><span class="n">e</span><span class="o">.</span> <span class="mi">125000</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">can.interfaces.interface</span> <span class="kn">import</span> <span class="n">Bus</span>
+
+<span class="n">hs_bus</span> <span class="o">=</span> <span class="n">Bus</span><span class="p">(</span><span class="n">context</span><span class="o">=</span><span class="s1">&#39;HS&#39;</span><span class="p">)</span>
+<span class="n">ms_bus</span> <span class="o">=</span> <span class="n">Bus</span><span class="p">(</span><span class="n">context</span><span class="o">=</span><span class="s1">&#39;MS&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="environment-variables">
+<h2>Environment Variables<a class="headerlink" href="#environment-variables" title="Permalink to this heading">¶</a></h2>
+<p>Configuration can be pulled from these environmental variables:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>CAN_INTERFACE</p></li>
+<li><p>CAN_CHANNEL</p></li>
+<li><p>CAN_BITRATE</p></li>
+</ul>
+</div></blockquote>
+</section>
+<section id="interface-names">
+<h2>Interface Names<a class="headerlink" href="#interface-names" title="Permalink to this heading">¶</a></h2>
+<p>Lookup table of interface names:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Documentation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;socketcan&quot;</span></code></p></td>
+<td><p><a class="reference internal" href="interfaces/socketcan.html"><span class="doc">SocketCAN</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;kvaser&quot;</span></code></p></td>
+<td><p><a class="reference internal" href="interfaces/kvaser.html"><span class="doc">Kvaser’s CANLIB</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;serial&quot;</span></code></p></td>
+<td><p><a class="reference internal" href="interfaces/serial.html"><span class="doc">CAN over Serial</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;slcan&quot;</span></code></p></td>
+<td><p><a class="reference internal" href="interfaces/slcan.html"><span class="doc">CAN over Serial / SLCAN</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;ixxat&quot;</span></code></p></td>
+<td><p><a class="reference internal" href="interfaces/ixxat.html"><span class="doc">IXXAT Virtual CAN Interface</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;pcan&quot;</span></code></p></td>
+<td><p><a class="reference internal" href="interfaces/pcan.html"><span class="doc">PCAN Basic API</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;usb2can&quot;</span></code></p></td>
+<td><p><a class="reference internal" href="interfaces/usb2can.html"><span class="doc">USB2CAN Interface</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;nican&quot;</span></code></p></td>
+<td><p><a class="reference internal" href="interfaces/nican.html"><span class="doc">NI-CAN</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;iscan&quot;</span></code></p></td>
+<td><p><a class="reference internal" href="interfaces/iscan.html"><span class="doc">isCAN</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;neovi&quot;</span></code></p></td>
+<td><p><a class="reference internal" href="interfaces/neovi.html"><span class="doc">NEOVI Interface</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;vector&quot;</span></code></p></td>
+<td><p><a class="reference internal" href="interfaces/vector.html"><span class="doc">Vector</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;virtual&quot;</span></code></p></td>
+<td><p><a class="reference internal" href="interfaces/virtual.html"><span class="doc">Virtual</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;canalystii&quot;</span></code></p></td>
+<td><p><a class="reference internal" href="interfaces/canalystii.html"><span class="doc">CANalyst-II</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;systec&quot;</span></code></p></td>
+<td><p><a class="reference internal" href="interfaces/systec.html"><span class="doc">SYSTEC interface</span></a></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Configuration</a><ul>
+<li><a class="reference internal" href="#in-code">In Code</a></li>
+<li><a class="reference internal" href="#configuration-file">Configuration File</a></li>
+<li><a class="reference internal" href="#environment-variables">Environment Variables</a></li>
+<li><a class="reference internal" href="#interface-names">Interface Names</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="installation.html"
+                          title="previous chapter">Installation</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="api.html"
+                          title="next chapter">Library API</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/configuration.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="api.html" title="Library API"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="installation.html" title="Installation"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">python-can 3.3.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Configuration</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

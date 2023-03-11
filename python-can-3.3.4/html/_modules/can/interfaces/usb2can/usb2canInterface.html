@@ -1,0 +1,258 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>can.interfaces.usb2can.usb2canInterface &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css" />
+    
+    <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <script src="../../../../_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../../can.html" accesskey="U">can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.usb2can.usb2canInterface</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for can.interfaces.usb2can.usb2canInterface</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This interface is for Windows only, otherwise use socketCAN.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">division</span><span class="p">,</span> <span class="n">print_function</span><span class="p">,</span> <span class="n">absolute_import</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">ctypes</span> <span class="kn">import</span> <span class="n">byref</span>
+
+<span class="kn">from</span> <span class="nn">can</span> <span class="kn">import</span> <span class="n">BusABC</span><span class="p">,</span> <span class="n">Message</span><span class="p">,</span> <span class="n">CanError</span>
+<span class="kn">from</span> <span class="nn">.usb2canabstractionlayer</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">.serial_selector</span> <span class="kn">import</span> <span class="n">find_serial_devices</span>
+
+<span class="c1"># Set up logging</span>
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;can.usb2can&#39;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">message_convert_tx</span><span class="p">(</span><span class="n">msg</span><span class="p">):</span>
+    <span class="n">message_tx</span> <span class="o">=</span> <span class="n">CanalMsg</span><span class="p">()</span>
+
+    <span class="n">length</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">dlc</span>
+    <span class="n">message_tx</span><span class="o">.</span><span class="n">sizeData</span> <span class="o">=</span> <span class="n">length</span>
+
+    <span class="n">message_tx</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">arbitration_id</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">length</span><span class="p">):</span>
+        <span class="n">message_tx</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+    <span class="n">message_tx</span><span class="o">.</span><span class="n">flags</span> <span class="o">=</span> <span class="mh">0x80000000</span>
+
+    <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_error_frame</span><span class="p">:</span>
+        <span class="n">message_tx</span><span class="o">.</span><span class="n">flags</span> <span class="o">|=</span> <span class="n">IS_ERROR_FRAME</span>
+
+    <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_remote_frame</span><span class="p">:</span>
+        <span class="n">message_tx</span><span class="o">.</span><span class="n">flags</span> <span class="o">|=</span> <span class="n">IS_REMOTE_FRAME</span>
+
+    <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_extended_id</span><span class="p">:</span>
+        <span class="n">message_tx</span><span class="o">.</span><span class="n">flags</span> <span class="o">|=</span> <span class="n">IS_ID_TYPE</span>
+
+    <span class="k">return</span> <span class="n">message_tx</span>
+
+
+<span class="k">def</span> <span class="nf">message_convert_rx</span><span class="p">(</span><span class="n">message_rx</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;convert the message from the CANAL type to pythoncan type&quot;&quot;&quot;</span>
+    <span class="n">is_extended_id</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">message_rx</span><span class="o">.</span><span class="n">flags</span> <span class="o">&amp;</span> <span class="n">IS_ID_TYPE</span><span class="p">)</span>
+    <span class="n">is_remote_frame</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">message_rx</span><span class="o">.</span><span class="n">flags</span> <span class="o">&amp;</span> <span class="n">IS_REMOTE_FRAME</span><span class="p">)</span>
+    <span class="n">is_error_frame</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">message_rx</span><span class="o">.</span><span class="n">flags</span> <span class="o">&amp;</span> <span class="n">IS_ERROR_FRAME</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">Message</span><span class="p">(</span><span class="n">timestamp</span><span class="o">=</span><span class="n">message_rx</span><span class="o">.</span><span class="n">timestamp</span><span class="p">,</span>
+                   <span class="n">is_remote_frame</span><span class="o">=</span><span class="n">is_remote_frame</span><span class="p">,</span>
+                   <span class="n">is_extended_id</span><span class="o">=</span><span class="n">is_extended_id</span><span class="p">,</span>
+                   <span class="n">is_error_frame</span><span class="o">=</span><span class="n">is_error_frame</span><span class="p">,</span>
+                   <span class="n">arbitration_id</span><span class="o">=</span><span class="n">message_rx</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                   <span class="n">dlc</span><span class="o">=</span><span class="n">message_rx</span><span class="o">.</span><span class="n">sizeData</span><span class="p">,</span>
+                   <span class="n">data</span><span class="o">=</span><span class="n">message_rx</span><span class="o">.</span><span class="n">data</span><span class="p">[:</span><span class="n">message_rx</span><span class="o">.</span><span class="n">sizeData</span><span class="p">])</span>
+
+
+<div class="viewcode-block" id="Usb2canBus"><a class="viewcode-back" href="../../../../interfaces/usb2can.html#can.interfaces.usb2can.Usb2canBus">[docs]</a><span class="k">class</span> <span class="nc">Usb2canBus</span><span class="p">(</span><span class="n">BusABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Interface to a USB2CAN Bus.</span>
+
+<span class="sd">    This interface only works on Windows.</span>
+<span class="sd">    Please use socketcan on Linux.</span>
+
+<span class="sd">    :param str channel (optional):</span>
+<span class="sd">        The device&#39;s serial number. If not provided, Windows Management Instrumentation</span>
+<span class="sd">        will be used to identify the first such device.</span>
+
+<span class="sd">    :param int bitrate (optional):</span>
+<span class="sd">        Bitrate of channel in bit/s. Values will be limited to a maximum of 1000 Kb/s.</span>
+<span class="sd">        Default is 500 Kbs</span>
+
+<span class="sd">    :param int flags (optional):</span>
+<span class="sd">        Flags to directly pass to open function of the usb2can abstraction layer.</span>
+
+<span class="sd">    :param str dll (optional):</span>
+<span class="sd">        Path to the DLL with the CANAL API to load</span>
+<span class="sd">        Defaults to &#39;usb2can.dll&#39;</span>
+
+<span class="sd">    :param str serial (optional):</span>
+<span class="sd">        Alias for `channel` that is provided for legacy reasons.</span>
+<span class="sd">        If both `serial` and `channel` are set, `serial` will be used and</span>
+<span class="sd">        channel will be ignored.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dll</span><span class="o">=</span><span class="s2">&quot;usb2can.dll&quot;</span><span class="p">,</span> <span class="n">flags</span><span class="o">=</span><span class="mh">0x00000008</span><span class="p">,</span>
+                 <span class="n">bitrate</span><span class="o">=</span><span class="mi">500000</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">can</span> <span class="o">=</span> <span class="n">Usb2CanAbstractionLayer</span><span class="p">(</span><span class="n">dll</span><span class="p">)</span>
+
+        <span class="c1"># get the serial number of the device</span>
+        <span class="k">if</span> <span class="s2">&quot;serial&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">device_id</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;serial&quot;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">device_id</span> <span class="o">=</span> <span class="n">channel</span>
+
+        <span class="c1"># search for a serial number if the device_id is None or empty</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">device_id</span><span class="p">:</span>
+            <span class="n">devices</span> <span class="o">=</span> <span class="n">find_serial_devices</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">devices</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">CanError</span><span class="p">(</span><span class="s2">&quot;could not automatically find any device&quot;</span><span class="p">)</span>
+            <span class="n">device_id</span> <span class="o">=</span> <span class="n">devices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># convert to kb/s and cap: max rate is 1000 kb/s</span>
+        <span class="n">baudrate</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">bitrate</span> <span class="o">//</span> <span class="mi">1000</span><span class="p">),</span> <span class="mi">1000</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">channel_info</span> <span class="o">=</span> <span class="s2">&quot;USB2CAN device </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">device_id</span><span class="p">)</span>
+
+        <span class="n">connector</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">; </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">device_id</span><span class="p">,</span> <span class="n">baudrate</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">handle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">can</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">connector</span><span class="p">,</span> <span class="n">flags</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">Usb2canBus</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">channel</span><span class="o">=</span><span class="n">channel</span><span class="p">,</span> <span class="n">dll</span><span class="o">=</span><span class="n">dll</span><span class="p">,</span> <span class="n">flags</span><span class="o">=</span><span class="n">flags</span><span class="p">,</span>
+                                         <span class="n">bitrate</span><span class="o">=</span><span class="n">bitrate</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">tx</span> <span class="o">=</span> <span class="n">message_convert_tx</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">timeout</span><span class="p">:</span>
+            <span class="n">status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">can</span><span class="o">.</span><span class="n">blocking_send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">handle</span><span class="p">,</span> <span class="n">byref</span><span class="p">(</span><span class="n">tx</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">timeout</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">can</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">handle</span><span class="p">,</span> <span class="n">byref</span><span class="p">(</span><span class="n">tx</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">status</span> <span class="o">!=</span> <span class="n">CANAL_ERROR_SUCCESS</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CanError</span><span class="p">(</span><span class="s2">&quot;could not send message: status == </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">status</span><span class="p">))</span>
+
+
+    <span class="k">def</span> <span class="nf">_recv_internal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="p">):</span>
+
+        <span class="n">messagerx</span> <span class="o">=</span> <span class="n">CanalMsg</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">timeout</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">can</span><span class="o">.</span><span class="n">receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">handle</span><span class="p">,</span> <span class="n">byref</span><span class="p">(</span><span class="n">messagerx</span><span class="p">))</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">time</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">int</span><span class="p">(</span><span class="n">timeout</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">)</span>
+            <span class="n">status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">can</span><span class="o">.</span><span class="n">blocking_receive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">handle</span><span class="p">,</span> <span class="n">byref</span><span class="p">(</span><span class="n">messagerx</span><span class="p">),</span> <span class="n">time</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">status</span> <span class="o">==</span> <span class="n">CANAL_ERROR_SUCCESS</span><span class="p">:</span>
+            <span class="n">rx</span> <span class="o">=</span> <span class="n">message_convert_rx</span><span class="p">(</span><span class="n">messagerx</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">status</span> <span class="o">==</span> <span class="n">CANAL_ERROR_RCV_EMPTY</span> <span class="ow">or</span> <span class="n">status</span> <span class="o">==</span> <span class="n">CANAL_ERROR_TIMEOUT</span><span class="p">:</span>
+            <span class="n">rx</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;Canal Error </span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">status</span><span class="p">)</span>
+            <span class="n">rx</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="n">rx</span><span class="p">,</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Shuts down connection to the device safely.</span>
+
+<span class="sd">        :raise cam.CanError: is closing the connection did not work</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">can</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">handle</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">status</span> <span class="o">!=</span> <span class="n">CANAL_ERROR_SUCCESS</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CanError</span><span class="p">(</span><span class="s2">&quot;could not shut down bus: status == </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">status</span><span class="p">))</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_detect_available_configs</span><span class="p">(</span><span class="n">serial_matcher</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Uses the Windows Management Instrumentation to identify serial devices.</span>
+
+<span class="sd">        :param str serial_matcher (optional):</span>
+<span class="sd">            search string for automatic detection of the device serial</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">serial_matcher</span><span class="p">:</span>
+            <span class="n">channels</span> <span class="o">=</span> <span class="n">find_serial_devices</span><span class="p">(</span><span class="n">serial_matcher</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">channels</span> <span class="o">=</span> <span class="n">find_serial_devices</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="p">[{</span><span class="s1">&#39;interface&#39;</span><span class="p">:</span> <span class="s1">&#39;usb2can&#39;</span><span class="p">,</span> <span class="s1">&#39;channel&#39;</span><span class="p">:</span> <span class="n">c</span><span class="p">}</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">channels</span><span class="p">]</span></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../../can.html" >can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.usb2can.usb2canInterface</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

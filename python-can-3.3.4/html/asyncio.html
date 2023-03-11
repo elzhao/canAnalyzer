@@ -1,0 +1,139 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Asyncio support &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Broadcast Manager" href="bcm.html" />
+    <link rel="prev" title="Listeners" href="listeners.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="bcm.html" title="Broadcast Manager"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="listeners.html" title="Listeners"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="api.html" accesskey="U">Library API</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Asyncio support</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="asyncio-support">
+<span id="asyncio"></span><h1>Asyncio support<a class="headerlink" href="#asyncio-support" title="Permalink to this heading">¶</a></h1>
+<p>The <a class="reference external" href="https://docs.python.org/3/library/asyncio.html#module-asyncio" title="(in Python v3.11)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">asyncio</span></code></a> module built into Python 3.4 and later can be used to write
+asynchronous code in a single thread. This library supports receiving messages
+asynchronously in an event loop using the <a class="reference internal" href="api.html#can.Notifier" title="can.Notifier"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.Notifier</span></code></a> class.</p>
+<p>There will still be one thread per CAN bus but the user application will execute
+entirely in the event loop, allowing simpler concurrency without worrying about
+threading issues. Interfaces that have a valid file descriptor will however be
+supported natively without a thread.</p>
+<p>You can also use the <a class="reference internal" href="listeners.html#can.AsyncBufferedReader" title="can.AsyncBufferedReader"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.AsyncBufferedReader</span></code></a> listener if you prefer
+to write coroutine based code instead of using callbacks.</p>
+<section id="example">
+<h2>Example<a class="headerlink" href="#example" title="Permalink to this heading">¶</a></h2>
+<p>Here is an example using both callback and coroutine based code:</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Asyncio support</a><ul>
+<li><a class="reference internal" href="#example">Example</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="listeners.html"
+                          title="previous chapter">Listeners</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="bcm.html"
+                          title="next chapter">Broadcast Manager</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/asyncio.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="bcm.html" title="Broadcast Manager"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="listeners.html" title="Listeners"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="api.html" >Library API</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Asyncio support</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

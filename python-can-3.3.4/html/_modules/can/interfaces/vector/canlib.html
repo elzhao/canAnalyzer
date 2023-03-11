@@ -1,0 +1,494 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>can.interfaces.vector.canlib &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css" />
+    
+    <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <script src="../../../../_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../../can.html" accesskey="U">can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.vector.canlib</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for can.interfaces.vector.canlib</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Ctypes wrapper module for Vector CAN Interface on win32/win64 systems.</span>
+
+<span class="sd">Authors: Julien Grave &lt;grave.jul@gmail.com&gt;, Christian Sandberg</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="c1"># Import Standard Python Modules</span>
+<span class="c1"># ==============================</span>
+<span class="kn">import</span> <span class="nn">ctypes</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">time</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="c1"># Try builtin Python 3 Windows API</span>
+    <span class="kn">from</span> <span class="nn">_winapi</span> <span class="kn">import</span> <span class="n">WaitForSingleObject</span><span class="p">,</span> <span class="n">INFINITE</span>
+    <span class="n">HAS_EVENTS</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Try pywin32 package</span>
+        <span class="kn">from</span> <span class="nn">win32event</span> <span class="kn">import</span> <span class="n">WaitForSingleObject</span><span class="p">,</span> <span class="n">INFINITE</span>
+        <span class="n">HAS_EVENTS</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="c1"># Use polling instead</span>
+        <span class="n">HAS_EVENTS</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="c1"># Import Modules</span>
+<span class="c1"># ==============</span>
+<span class="kn">from</span> <span class="nn">can</span> <span class="kn">import</span> <span class="n">BusABC</span><span class="p">,</span> <span class="n">Message</span><span class="p">,</span> <span class="n">CanError</span>
+<span class="kn">from</span> <span class="nn">can.util</span> <span class="kn">import</span> <span class="n">len2dlc</span><span class="p">,</span> <span class="n">dlc2len</span>
+<span class="kn">from</span> <span class="nn">.exceptions</span> <span class="kn">import</span> <span class="n">VectorError</span>
+
+<span class="c1"># Define Module Logger</span>
+<span class="c1"># ====================</span>
+<span class="n">LOG</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="c1"># Import safely Vector API module for Travis tests</span>
+<span class="n">vxlapi</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">vxlapi</span>
+<span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+    <span class="n">LOG</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Could not import vxlapi: </span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="VectorBus"><a class="viewcode-back" href="../../../../interfaces/vector.html#can.interfaces.vector.VectorBus">[docs]</a><span class="k">class</span> <span class="nc">VectorBus</span><span class="p">(</span><span class="n">BusABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The CAN Bus implemented for the Vector interface.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">can_filters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">poll_interval</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span>
+                 <span class="n">receive_own_messages</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">bitrate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rx_queue_size</span><span class="o">=</span><span class="mi">2</span><span class="o">**</span><span class="mi">14</span><span class="p">,</span> <span class="n">app_name</span><span class="o">=</span><span class="s2">&quot;CANalyzer&quot;</span><span class="p">,</span>
+                 <span class="n">serial</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fd</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">data_bitrate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sjwAbr</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">tseg1Abr</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
+                 <span class="n">tseg2Abr</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">sjwDbr</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">tseg1Dbr</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">tseg2Dbr</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param list channel:</span>
+<span class="sd">            The channel indexes to create this bus with.</span>
+<span class="sd">            Can also be a single integer or a comma separated string.</span>
+<span class="sd">        :param float poll_interval:</span>
+<span class="sd">            Poll interval in seconds.</span>
+<span class="sd">        :param int bitrate:</span>
+<span class="sd">            Bitrate in bits/s.</span>
+<span class="sd">        :param int rx_queue_size:</span>
+<span class="sd">            Number of messages in receive queue (power of 2).</span>
+<span class="sd">            CAN: range 16…32768</span>
+<span class="sd">            CAN-FD: range 8192…524288</span>
+<span class="sd">        :param str app_name:</span>
+<span class="sd">            Name of application in Hardware Config.</span>
+<span class="sd">            If set to None, the channel should be a global channel index.</span>
+<span class="sd">        :param int serial:</span>
+<span class="sd">            Serial number of the hardware to be used.</span>
+<span class="sd">            If set, the channel parameter refers to the channels ONLY on the specified hardware.</span>
+<span class="sd">            If set, the app_name is unused.</span>
+<span class="sd">        :param bool fd:</span>
+<span class="sd">            If CAN-FD frames should be supported.</span>
+<span class="sd">        :param int data_bitrate:</span>
+<span class="sd">            Which bitrate to use for data phase in CAN FD.</span>
+<span class="sd">            Defaults to arbitration bitrate.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">vxlapi</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;The Vector API has not been loaded&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">poll_interval</span> <span class="o">=</span> <span class="n">poll_interval</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">channels</span> <span class="o">=</span> <span class="n">channel</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">channels</span> <span class="o">=</span> <span class="p">[</span><span class="n">channel</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Assume comma separated string of channels</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">channels</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">ch</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">channel</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">)]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_app_name</span> <span class="o">=</span> <span class="n">app_name</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span> <span class="k">if</span> <span class="n">app_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="sa">b</span><span class="s1">&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">channel_info</span> <span class="o">=</span> <span class="s1">&#39;Application </span><span class="si">%s</span><span class="s1">: </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="n">app_name</span><span class="p">,</span> <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s1">&#39;CAN </span><span class="si">%d</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ch</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">channels</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">serial</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">app_name</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">channel_index</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">channel_configs</span> <span class="o">=</span> <span class="n">get_channel_configs</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">channel_config</span> <span class="ow">in</span> <span class="n">channel_configs</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">channel_config</span><span class="o">.</span><span class="n">serialNumber</span> <span class="o">==</span> <span class="n">serial</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">channel_config</span><span class="o">.</span><span class="n">hwChannel</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">channels</span><span class="p">:</span>
+                        <span class="n">channel_index</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">channel_config</span><span class="o">.</span><span class="n">channelIndex</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">channel_index</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">channel_index</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">channels</span><span class="p">):</span>
+                    <span class="n">LOG</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;At least one defined channel wasn&#39;t found on the specified hardware.&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">channels</span> <span class="o">=</span> <span class="n">channel_index</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Is there any better way to raise the error?</span>
+                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;None of the configured channels could be found on the specified hardware.&quot;</span><span class="p">)</span>
+
+        <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlOpenDriver</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">port_handle</span> <span class="o">=</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XLportHandle</span><span class="p">(</span><span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_INVALID_PORTHANDLE</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fd</span> <span class="o">=</span> <span class="n">fd</span>
+        <span class="c1"># Get channels masks</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">channel_masks</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">index_to_channel</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">for</span> <span class="n">channel</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">channels</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">app_name</span><span class="p">:</span>
+                <span class="c1"># Get global channel index from application channel</span>
+                <span class="n">hw_type</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">hw_index</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">hw_channel</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlGetApplConfig</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_app_name</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">hw_type</span><span class="p">,</span> <span class="n">hw_index</span><span class="p">,</span>
+                                       <span class="n">hw_channel</span><span class="p">,</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_BUS_TYPE_CAN</span><span class="p">)</span>
+                <span class="n">LOG</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Channel index </span><span class="si">%d</span><span class="s1"> found&#39;</span><span class="p">,</span> <span class="n">channel</span><span class="p">)</span>
+                <span class="n">idx</span> <span class="o">=</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlGetChannelIndex</span><span class="p">(</span><span class="n">hw_type</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">hw_index</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+                                               <span class="n">hw_channel</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="c1"># Undocumented behavior! See issue #353.</span>
+                    <span class="c1"># If hardware is unavailable, this function returns -1.</span>
+                    <span class="c1"># Raise an exception as if the driver</span>
+                    <span class="c1"># would have signalled XL_ERR_HW_NOT_PRESENT.</span>
+                    <span class="k">raise</span> <span class="n">VectorError</span><span class="p">(</span><span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_ERR_HW_NOT_PRESENT</span><span class="p">,</span>
+                                      <span class="s2">&quot;XL_ERR_HW_NOT_PRESENT&quot;</span><span class="p">,</span>
+                                      <span class="s2">&quot;xlGetChannelIndex&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Channel already given as global channel</span>
+                <span class="n">idx</span> <span class="o">=</span> <span class="n">channel</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="n">idx</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">channel_masks</span><span class="p">[</span><span class="n">channel</span><span class="p">]</span> <span class="o">=</span> <span class="n">mask</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">index_to_channel</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">channel</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">|=</span> <span class="n">mask</span>
+
+        <span class="n">permission_mask</span> <span class="o">=</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XLaccess</span><span class="p">()</span>
+        <span class="c1"># Set mask to request channel init permission if needed</span>
+        <span class="k">if</span> <span class="n">bitrate</span> <span class="ow">or</span> <span class="n">fd</span><span class="p">:</span>
+            <span class="n">permission_mask</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span>
+        <span class="k">if</span> <span class="n">fd</span><span class="p">:</span>
+            <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlOpenPort</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">port_handle</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_app_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span>
+                              <span class="n">permission_mask</span><span class="p">,</span> <span class="n">rx_queue_size</span><span class="p">,</span>
+                              <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_INTERFACE_VERSION_V4</span><span class="p">,</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_BUS_TYPE_CAN</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlOpenPort</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">port_handle</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_app_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span>
+                              <span class="n">permission_mask</span><span class="p">,</span> <span class="n">rx_queue_size</span><span class="p">,</span>
+                              <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_INTERFACE_VERSION</span><span class="p">,</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_BUS_TYPE_CAN</span><span class="p">)</span>
+        <span class="n">LOG</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="s1">&#39;Open Port: PortHandle: </span><span class="si">%d</span><span class="s1">, PermissionMask: 0x</span><span class="si">%X</span><span class="s1">&#39;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">port_handle</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">permission_mask</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">permission_mask</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">fd</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">canFdConf</span> <span class="o">=</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XLcanFdConf</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">bitrate</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">canFdConf</span><span class="o">.</span><span class="n">arbitrationBitRate</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">(</span><span class="n">bitrate</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">canFdConf</span><span class="o">.</span><span class="n">arbitrationBitRate</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">(</span><span class="mi">500000</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">canFdConf</span><span class="o">.</span><span class="n">sjwAbr</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">(</span><span class="n">sjwAbr</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">canFdConf</span><span class="o">.</span><span class="n">tseg1Abr</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">(</span><span class="n">tseg1Abr</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">canFdConf</span><span class="o">.</span><span class="n">tseg2Abr</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">(</span><span class="n">tseg2Abr</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">data_bitrate</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">canFdConf</span><span class="o">.</span><span class="n">dataBitRate</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">(</span><span class="n">data_bitrate</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">canFdConf</span><span class="o">.</span><span class="n">dataBitRate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">canFdConf</span><span class="o">.</span><span class="n">arbitrationBitRate</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">canFdConf</span><span class="o">.</span><span class="n">sjwDbr</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">(</span><span class="n">sjwDbr</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">canFdConf</span><span class="o">.</span><span class="n">tseg1Dbr</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">(</span><span class="n">tseg1Dbr</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">canFdConf</span><span class="o">.</span><span class="n">tseg2Dbr</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">(</span><span class="n">tseg2Dbr</span><span class="p">)</span>
+                
+                <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlCanFdSetConfiguration</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">port_handle</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">canFdConf</span><span class="p">)</span>
+                <span class="n">LOG</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;SetFdConfig.: ABaudr.=</span><span class="si">%u</span><span class="s1">, DBaudr.=</span><span class="si">%u</span><span class="s1">&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">canFdConf</span><span class="o">.</span><span class="n">arbitrationBitRate</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">canFdConf</span><span class="o">.</span><span class="n">dataBitRate</span><span class="p">)</span>
+                <span class="n">LOG</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;SetFdConfig.: sjwAbr=</span><span class="si">%u</span><span class="s1">, tseg1Abr=</span><span class="si">%u</span><span class="s1">, tseg2Abr=</span><span class="si">%u</span><span class="s1">&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">canFdConf</span><span class="o">.</span><span class="n">sjwAbr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">canFdConf</span><span class="o">.</span><span class="n">tseg1Abr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">canFdConf</span><span class="o">.</span><span class="n">tseg2Abr</span><span class="p">)</span>
+                <span class="n">LOG</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;SetFdConfig.: sjwDbr=</span><span class="si">%u</span><span class="s1">, tseg1Dbr=</span><span class="si">%u</span><span class="s1">, tseg2Dbr=</span><span class="si">%u</span><span class="s1">&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">canFdConf</span><span class="o">.</span><span class="n">sjwDbr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">canFdConf</span><span class="o">.</span><span class="n">tseg1Dbr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">canFdConf</span><span class="o">.</span><span class="n">tseg2Dbr</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">bitrate</span><span class="p">:</span>
+                    <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlCanSetChannelBitrate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">port_handle</span><span class="p">,</span> <span class="n">permission_mask</span><span class="p">,</span> <span class="n">bitrate</span><span class="p">)</span>
+                    <span class="n">LOG</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;SetChannelBitrate: baudr.=</span><span class="si">%u</span><span class="s1">&#39;</span><span class="p">,</span><span class="n">bitrate</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">LOG</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;No init access!&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Enable/disable TX receipts</span>
+        <span class="n">tx_receipts</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">receive_own_messages</span> <span class="k">else</span> <span class="mi">0</span>
+        <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlCanSetChannelMode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">port_handle</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="n">tx_receipts</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">HAS_EVENTS</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">event_handle</span> <span class="o">=</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XLhandle</span><span class="p">()</span>
+            <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlSetNotification</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">port_handle</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">event_handle</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">LOG</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Install pywin32 to avoid polling&#39;</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlActivateChannel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">port_handle</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span>
+                                     <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_BUS_TYPE_CAN</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">VectorError</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+            <span class="k">raise</span>
+
+        <span class="c1"># Calculate time offset for absolute timestamps</span>
+        <span class="n">offset</span> <span class="o">=</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XLuint64</span><span class="p">()</span>
+        <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlGetSyncTime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">port_handle</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_time_offset</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">offset</span><span class="o">.</span><span class="n">value</span> <span class="o">*</span> <span class="mf">1e-9</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_is_filtered</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">VectorBus</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">channel</span><span class="o">=</span><span class="n">channel</span><span class="p">,</span> <span class="n">can_filters</span><span class="o">=</span><span class="n">can_filters</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_apply_filters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filters</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">filters</span><span class="p">:</span>
+            <span class="c1"># Only up to one filter per ID type allowed</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">filters</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">filters</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span>
+                    <span class="n">filters</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;extended&quot;</span><span class="p">)</span> <span class="o">!=</span> <span class="n">filters</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;extended&quot;</span><span class="p">)):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">can_filter</span> <span class="ow">in</span> <span class="n">filters</span><span class="p">:</span>
+                        <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlCanSetChannelAcceptance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">port_handle</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span>
+                            <span class="n">can_filter</span><span class="p">[</span><span class="s2">&quot;can_id&quot;</span><span class="p">],</span> <span class="n">can_filter</span><span class="p">[</span><span class="s2">&quot;can_mask&quot;</span><span class="p">],</span>
+                            <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_CAN_EXT</span> <span class="k">if</span> <span class="n">can_filter</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;extended&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_CAN_STD</span><span class="p">)</span>
+                <span class="k">except</span> <span class="n">VectorError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                    <span class="n">LOG</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Could not set filters: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+                    <span class="c1"># go to fallback</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_is_filtered</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="k">return</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">LOG</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Only up to one filter per extended or standard ID allowed&quot;</span><span class="p">)</span>
+                <span class="c1"># go to fallback</span>
+
+        <span class="c1"># fallback: reset filters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_is_filtered</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlCanSetChannelAcceptance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">port_handle</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="mh">0x0</span><span class="p">,</span> <span class="mh">0x0</span><span class="p">,</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_CAN_EXT</span><span class="p">)</span>
+            <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlCanSetChannelAcceptance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">port_handle</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="mh">0x0</span><span class="p">,</span> <span class="mh">0x0</span><span class="p">,</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_CAN_STD</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">VectorError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="n">LOG</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Could not reset filters: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_recv_internal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="p">):</span>
+        <span class="n">end_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">+</span> <span class="n">timeout</span> <span class="k">if</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fd</span><span class="p">:</span>
+            <span class="n">event</span> <span class="o">=</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XLcanRxEvent</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">event</span> <span class="o">=</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XLevent</span><span class="p">()</span>
+            <span class="n">event_count</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">()</span>
+
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fd</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlCanReceive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">port_handle</span><span class="p">,</span> <span class="n">event</span><span class="p">)</span>
+                <span class="k">except</span> <span class="n">VectorError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">exc</span><span class="o">.</span><span class="n">error_code</span> <span class="o">!=</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_ERR_QUEUE_IS_EMPTY</span><span class="p">:</span>
+                        <span class="k">raise</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">tag</span> <span class="o">==</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_CAN_EV_TAG_RX_OK</span> <span class="ow">or</span> <span class="n">event</span><span class="o">.</span><span class="n">tag</span> <span class="o">==</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_CAN_EV_TAG_TX_OK</span><span class="p">:</span>
+                        <span class="n">msg_id</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">tagData</span><span class="o">.</span><span class="n">canRxOkMsg</span><span class="o">.</span><span class="n">canId</span>
+                        <span class="n">dlc</span> <span class="o">=</span> <span class="n">dlc2len</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">tagData</span><span class="o">.</span><span class="n">canRxOkMsg</span><span class="o">.</span><span class="n">dlc</span><span class="p">)</span>
+                        <span class="n">flags</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">tagData</span><span class="o">.</span><span class="n">canRxOkMsg</span><span class="o">.</span><span class="n">msgFlags</span>
+                        <span class="n">timestamp</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">timeStamp</span> <span class="o">*</span> <span class="mf">1e-9</span>
+                        <span class="n">channel</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">index_to_channel</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">chanIndex</span><span class="p">)</span>
+                        <span class="n">msg</span> <span class="o">=</span> <span class="n">Message</span><span class="p">(</span>
+                            <span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_time_offset</span><span class="p">,</span>
+                            <span class="n">arbitration_id</span><span class="o">=</span><span class="n">msg_id</span> <span class="o">&amp;</span> <span class="mh">0x1FFFFFFF</span><span class="p">,</span>
+                            <span class="n">is_extended_id</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">msg_id</span> <span class="o">&amp;</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_CAN_EXT_MSG_ID</span><span class="p">),</span>
+                            <span class="n">is_remote_frame</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">flags</span> <span class="o">&amp;</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_CAN_RXMSG_FLAG_RTR</span><span class="p">),</span>
+                            <span class="n">is_error_frame</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">flags</span> <span class="o">&amp;</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_CAN_RXMSG_FLAG_EF</span><span class="p">),</span>
+                            <span class="n">is_fd</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">flags</span> <span class="o">&amp;</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_CAN_RXMSG_FLAG_EDL</span><span class="p">),</span>
+                            <span class="n">error_state_indicator</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">flags</span> <span class="o">&amp;</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_CAN_RXMSG_FLAG_ESI</span><span class="p">),</span>
+                            <span class="n">bitrate_switch</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">flags</span> <span class="o">&amp;</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_CAN_RXMSG_FLAG_BRS</span><span class="p">),</span>
+                            <span class="n">dlc</span><span class="o">=</span><span class="n">dlc</span><span class="p">,</span>
+                            <span class="n">data</span><span class="o">=</span><span class="n">event</span><span class="o">.</span><span class="n">tagData</span><span class="o">.</span><span class="n">canRxOkMsg</span><span class="o">.</span><span class="n">data</span><span class="p">[:</span><span class="n">dlc</span><span class="p">],</span>
+                            <span class="n">channel</span><span class="o">=</span><span class="n">channel</span><span class="p">)</span>
+                        <span class="k">return</span> <span class="n">msg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_filtered</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">event_count</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="mi">1</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlReceive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">port_handle</span><span class="p">,</span> <span class="n">event_count</span><span class="p">,</span> <span class="n">event</span><span class="p">)</span>
+                <span class="k">except</span> <span class="n">VectorError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">exc</span><span class="o">.</span><span class="n">error_code</span> <span class="o">!=</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_ERR_QUEUE_IS_EMPTY</span><span class="p">:</span>
+                        <span class="k">raise</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">tag</span> <span class="o">==</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_RECEIVE_MSG</span><span class="p">:</span>
+                        <span class="n">msg_id</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">tagData</span><span class="o">.</span><span class="n">msg</span><span class="o">.</span><span class="n">id</span>
+                        <span class="n">dlc</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">tagData</span><span class="o">.</span><span class="n">msg</span><span class="o">.</span><span class="n">dlc</span>
+                        <span class="n">flags</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">tagData</span><span class="o">.</span><span class="n">msg</span><span class="o">.</span><span class="n">flags</span>
+                        <span class="n">timestamp</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">timeStamp</span> <span class="o">*</span> <span class="mf">1e-9</span>
+                        <span class="n">channel</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">index_to_channel</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">chanIndex</span><span class="p">)</span>
+                        <span class="n">msg</span> <span class="o">=</span> <span class="n">Message</span><span class="p">(</span>
+                            <span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_time_offset</span><span class="p">,</span>
+                            <span class="n">arbitration_id</span><span class="o">=</span><span class="n">msg_id</span> <span class="o">&amp;</span> <span class="mh">0x1FFFFFFF</span><span class="p">,</span>
+                            <span class="n">is_extended_id</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">msg_id</span> <span class="o">&amp;</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_CAN_EXT_MSG_ID</span><span class="p">),</span>
+                            <span class="n">is_remote_frame</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">flags</span> <span class="o">&amp;</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_CAN_MSG_FLAG_REMOTE_FRAME</span><span class="p">),</span>
+                            <span class="n">is_error_frame</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">flags</span> <span class="o">&amp;</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_CAN_MSG_FLAG_ERROR_FRAME</span><span class="p">),</span>
+                            <span class="n">is_fd</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                            <span class="n">dlc</span><span class="o">=</span><span class="n">dlc</span><span class="p">,</span>
+                            <span class="n">data</span><span class="o">=</span><span class="n">event</span><span class="o">.</span><span class="n">tagData</span><span class="o">.</span><span class="n">msg</span><span class="o">.</span><span class="n">data</span><span class="p">[:</span><span class="n">dlc</span><span class="p">],</span>
+                            <span class="n">channel</span><span class="o">=</span><span class="n">channel</span><span class="p">)</span>
+                        <span class="k">return</span> <span class="n">msg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_filtered</span>
+
+            <span class="k">if</span> <span class="n">end_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">end_time</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_filtered</span>
+
+            <span class="k">if</span> <span class="n">HAS_EVENTS</span><span class="p">:</span>
+                <span class="c1"># Wait for receive event to occur</span>
+                <span class="k">if</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">time_left_ms</span> <span class="o">=</span> <span class="n">INFINITE</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">time_left</span> <span class="o">=</span> <span class="n">end_time</span> <span class="o">-</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+                    <span class="n">time_left_ms</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">time_left</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">))</span>
+                <span class="n">WaitForSingleObject</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">event_handle</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">time_left_ms</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Wait a short time until we try again</span>
+                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">poll_interval</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">msg_id</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">arbitration_id</span>
+
+        <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_extended_id</span><span class="p">:</span>
+            <span class="n">msg_id</span> <span class="o">|=</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_CAN_EXT_MSG_ID</span>
+
+        <span class="n">flags</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># If channel has been specified, try to send only to that one.</span>
+        <span class="c1"># Otherwise send to all channels</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">channel_masks</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">channel</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fd</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_fd</span><span class="p">:</span>
+                <span class="n">flags</span> <span class="o">|=</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_CAN_TXMSG_FLAG_EDL</span>
+            <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">bitrate_switch</span><span class="p">:</span>
+                <span class="n">flags</span> <span class="o">|=</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_CAN_TXMSG_FLAG_BRS</span>
+            <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_remote_frame</span><span class="p">:</span>
+                <span class="n">flags</span> <span class="o">|=</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_CAN_TXMSG_FLAG_RTR</span>
+                        
+            <span class="n">message_count</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="n">MsgCntSent</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            
+            <span class="n">XLcanTxEvent</span> <span class="o">=</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XLcanTxEvent</span><span class="p">()</span>
+            <span class="n">XLcanTxEvent</span><span class="o">.</span><span class="n">tag</span> <span class="o">=</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_CAN_EV_TAG_TX_MSG</span>
+            <span class="n">XLcanTxEvent</span><span class="o">.</span><span class="n">transId</span> <span class="o">=</span> <span class="mh">0xffff</span>
+            
+            <span class="n">XLcanTxEvent</span><span class="o">.</span><span class="n">tagData</span><span class="o">.</span><span class="n">canMsg</span><span class="o">.</span><span class="n">canId</span> <span class="o">=</span> <span class="n">msg_id</span>
+            <span class="n">XLcanTxEvent</span><span class="o">.</span><span class="n">tagData</span><span class="o">.</span><span class="n">canMsg</span><span class="o">.</span><span class="n">msgFlags</span> <span class="o">=</span> <span class="n">flags</span>
+            <span class="n">XLcanTxEvent</span><span class="o">.</span><span class="n">tagData</span><span class="o">.</span><span class="n">canMsg</span><span class="o">.</span><span class="n">dlc</span> <span class="o">=</span> <span class="n">len2dlc</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">dlc</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">data</span><span class="p">):</span>
+                <span class="n">XLcanTxEvent</span><span class="o">.</span><span class="n">tagData</span><span class="o">.</span><span class="n">canMsg</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlCanTransmitEx</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">port_handle</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">message_count</span><span class="p">,</span> <span class="n">MsgCntSent</span><span class="p">,</span> <span class="n">XLcanTxEvent</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_remote_frame</span><span class="p">:</span>
+                <span class="n">flags</span> <span class="o">|=</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_CAN_MSG_FLAG_REMOTE_FRAME</span>
+
+            <span class="n">message_count</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            
+            <span class="n">xl_event</span> <span class="o">=</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XLevent</span><span class="p">()</span>
+            <span class="n">xl_event</span><span class="o">.</span><span class="n">tag</span> <span class="o">=</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_TRANSMIT_MSG</span>
+            
+            <span class="n">xl_event</span><span class="o">.</span><span class="n">tagData</span><span class="o">.</span><span class="n">msg</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">msg_id</span>
+            <span class="n">xl_event</span><span class="o">.</span><span class="n">tagData</span><span class="o">.</span><span class="n">msg</span><span class="o">.</span><span class="n">dlc</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">dlc</span>
+            <span class="n">xl_event</span><span class="o">.</span><span class="n">tagData</span><span class="o">.</span><span class="n">msg</span><span class="o">.</span><span class="n">flags</span> <span class="o">=</span> <span class="n">flags</span>
+            <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">data</span><span class="p">):</span>
+                <span class="n">xl_event</span><span class="o">.</span><span class="n">tagData</span><span class="o">.</span><span class="n">msg</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlCanTransmit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">port_handle</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">message_count</span><span class="p">,</span> <span class="n">xl_event</span><span class="p">)</span>
+
+        
+    <span class="k">def</span> <span class="nf">flush_tx_buffer</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlCanFlushTransmitQueue</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">port_handle</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlDeactivateChannel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">port_handle</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">)</span>
+        <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlClosePort</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">port_handle</span><span class="p">)</span>
+        <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlCloseDriver</span><span class="p">()</span>
+        
+    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlDeactivateChannel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">port_handle</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">)</span>
+        <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlActivateChannel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">port_handle</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span>
+                                     <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_BUS_TYPE_CAN</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_detect_available_configs</span><span class="p">():</span>
+        <span class="n">configs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">channel_configs</span> <span class="o">=</span> <span class="n">get_channel_configs</span><span class="p">()</span>
+        <span class="n">LOG</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Found </span><span class="si">%d</span><span class="s1"> channels&#39;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">channel_configs</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">channel_config</span> <span class="ow">in</span> <span class="n">channel_configs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">channel_config</span><span class="o">.</span><span class="n">channelBusCapabilities</span> <span class="o">&amp;</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XL_BUS_ACTIVE_CAP_CAN</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">LOG</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Channel index </span><span class="si">%d</span><span class="s1">: </span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span>
+                     <span class="n">channel_config</span><span class="o">.</span><span class="n">channelIndex</span><span class="p">,</span>
+                     <span class="n">channel_config</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s1">&#39;ascii&#39;</span><span class="p">))</span>
+            <span class="n">configs</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s1">&#39;interface&#39;</span><span class="p">:</span> <span class="s1">&#39;vector&#39;</span><span class="p">,</span>
+                            <span class="s1">&#39;app_name&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                            <span class="s1">&#39;channel&#39;</span><span class="p">:</span> <span class="n">channel_config</span><span class="o">.</span><span class="n">channelIndex</span><span class="p">})</span>
+        <span class="k">return</span> <span class="n">configs</span></div>
+
+<span class="k">def</span> <span class="nf">get_channel_configs</span><span class="p">():</span>
+    <span class="k">if</span> <span class="n">vxlapi</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[]</span>
+    <span class="n">driver_config</span> <span class="o">=</span> <span class="n">vxlapi</span><span class="o">.</span><span class="n">XLdriverConfig</span><span class="p">()</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlOpenDriver</span><span class="p">()</span>
+        <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlGetDriverConfig</span><span class="p">(</span><span class="n">driver_config</span><span class="p">)</span>
+        <span class="n">vxlapi</span><span class="o">.</span><span class="n">xlCloseDriver</span><span class="p">()</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">driver_config</span><span class="o">.</span><span class="n">channel</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">driver_config</span><span class="o">.</span><span class="n">channelCount</span><span class="p">)]</span>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../../can.html" >can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.vector.canlib</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

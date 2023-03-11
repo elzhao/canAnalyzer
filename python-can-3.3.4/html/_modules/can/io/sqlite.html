@@ -1,0 +1,320 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>can.io.sqlite &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css" />
+    
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../can.html" accesskey="U">can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.io.sqlite</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for can.io.sqlite</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Implements an SQL database writer and reader for storing CAN messages.</span>
+
+<span class="sd">.. note:: The database schema is given in the documentation of the loggers.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">absolute_import</span>
+
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">threading</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">sqlite3</span>
+
+<span class="kn">from</span> <span class="nn">can.listener</span> <span class="kn">import</span> <span class="n">BufferedReader</span>
+<span class="kn">from</span> <span class="nn">can.message</span> <span class="kn">import</span> <span class="n">Message</span>
+<span class="kn">from</span> <span class="nn">.generic</span> <span class="kn">import</span> <span class="n">BaseIOHandler</span>
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;can.io.sqlite&#39;</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span><span class="o">.</span><span class="n">major</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+    <span class="c1"># legacy fallback for Python 2</span>
+    <span class="nb">memoryview</span> <span class="o">=</span> <span class="n">buffer</span>
+
+
+<div class="viewcode-block" id="SqliteReader"><a class="viewcode-back" href="../../../listeners.html#can.SqliteReader">[docs]</a><span class="k">class</span> <span class="nc">SqliteReader</span><span class="p">(</span><span class="n">BaseIOHandler</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reads recorded CAN messages from a simple SQL database.</span>
+
+<span class="sd">    This class can be iterated over or used to fetch all messages in the</span>
+<span class="sd">    database with :meth:`~SqliteReader.read_all`.</span>
+
+<span class="sd">    Calling :func:`~builtin.len` on this object might not run in constant time.</span>
+
+<span class="sd">    :attr str table_name: the name of the database table used for storing the messages</span>
+
+<span class="sd">    .. note:: The database schema is given in the documentation of the loggers.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file</span><span class="p">,</span> <span class="n">table_name</span><span class="o">=</span><span class="s2">&quot;messages&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param file: a `str` or since Python 3.7 a path like object that points</span>
+<span class="sd">                     to the database file to use</span>
+<span class="sd">        :param str table_name: the name of the table to look for the messages</span>
+
+<span class="sd">        .. warning:: In contrary to all other readers/writers the Sqlite handlers</span>
+<span class="sd">                     do not accept file-like objects as the `file` parameter.</span>
+<span class="sd">                     It also runs in ``append=True`` mode all the time.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">SqliteReader</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">file</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_conn</span> <span class="o">=</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cursor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">table_name</span> <span class="o">=</span> <span class="n">table_name</span>
+
+    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">frame_data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;SELECT * FROM </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">table_name</span><span class="p">)):</span>
+            <span class="k">yield</span> <span class="n">SqliteReader</span><span class="o">.</span><span class="n">_assemble_message</span><span class="p">(</span><span class="n">frame_data</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_assemble_message</span><span class="p">(</span><span class="n">frame_data</span><span class="p">):</span>
+        <span class="n">timestamp</span><span class="p">,</span> <span class="n">can_id</span><span class="p">,</span> <span class="n">is_extended</span><span class="p">,</span> <span class="n">is_remote</span><span class="p">,</span> <span class="n">is_error</span><span class="p">,</span> <span class="n">dlc</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">frame_data</span>
+        <span class="k">return</span> <span class="n">Message</span><span class="p">(</span>
+            <span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span><span class="p">,</span>
+            <span class="n">is_remote_frame</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">is_remote</span><span class="p">),</span>
+            <span class="n">is_extended_id</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">is_extended</span><span class="p">),</span>
+            <span class="n">is_error_frame</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">is_error</span><span class="p">),</span>
+            <span class="n">arbitration_id</span><span class="o">=</span><span class="n">can_id</span><span class="p">,</span>
+            <span class="n">dlc</span><span class="o">=</span><span class="n">dlc</span><span class="p">,</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">data</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># this might not run in constant time</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;SELECT COUNT(*) FROM </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">table_name</span><span class="p">))</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span>
+
+<div class="viewcode-block" id="SqliteReader.read_all"><a class="viewcode-back" href="../../../listeners.html#can.SqliteReader.read_all">[docs]</a>    <span class="k">def</span> <span class="nf">read_all</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fetches all messages in the database.</span>
+
+<span class="sd">        :rtype: Generator[can.Message]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;SELECT * FROM </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">table_name</span><span class="p">))</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">SqliteReader</span><span class="o">.</span><span class="n">_assemble_message</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span> <span class="k">for</span> <span class="n">frame</span> <span class="ow">in</span> <span class="n">result</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SqliteReader.stop"><a class="viewcode-back" href="../../../listeners.html#can.SqliteReader.stop">[docs]</a>    <span class="k">def</span> <span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Closes the connection to the database.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">SqliteReader</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_conn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="SqliteWriter"><a class="viewcode-back" href="../../../listeners.html#can.SqliteWriter">[docs]</a><span class="k">class</span> <span class="nc">SqliteWriter</span><span class="p">(</span><span class="n">BaseIOHandler</span><span class="p">,</span> <span class="n">BufferedReader</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Logs received CAN data to a simple SQL database.</span>
+
+<span class="sd">    The sqlite database may already exist, otherwise it will</span>
+<span class="sd">    be created when the first message arrives.</span>
+
+<span class="sd">    Messages are internally buffered and written to the SQL file in a background</span>
+<span class="sd">    thread. Ensures that all messages that are added before calling :meth:`~can.SqliteWriter.stop()`</span>
+<span class="sd">    are actually written to the database after that call returns. Thus, calling</span>
+<span class="sd">    :meth:`~can.SqliteWriter.stop()` may take a while.</span>
+
+<span class="sd">    :attr str table_name: the name of the database table used for storing the messages</span>
+<span class="sd">    :attr int num_frames: the number of frames actually written to the database, this</span>
+<span class="sd">                          excludes messages that are still buffered</span>
+<span class="sd">    :attr float last_write: the last time a message war actually written to the database,</span>
+<span class="sd">                            as given by ``time.time()``</span>
+
+<span class="sd">    .. note::</span>
+
+<span class="sd">        When the listener&#39;s :meth:`~SqliteWriter.stop` method is called the</span>
+<span class="sd">        thread writing to the database will continue to receive and internally</span>
+<span class="sd">        buffer messages if they continue to arrive before the</span>
+<span class="sd">        :attr:`~SqliteWriter.GET_MESSAGE_TIMEOUT`.</span>
+
+<span class="sd">        If the :attr:`~SqliteWriter.GET_MESSAGE_TIMEOUT` expires before a message</span>
+<span class="sd">        is received, the internal buffer is written out to the database file.</span>
+
+<span class="sd">        However if the bus is still saturated with messages, the Listener</span>
+<span class="sd">        will continue receiving until the :attr:`~can.SqliteWriter.MAX_TIME_BETWEEN_WRITES`</span>
+<span class="sd">        timeout is reached or more than</span>
+<span class="sd">        :attr:`~can.SqliteWriter.MAX_BUFFER_SIZE_BEFORE_WRITES` messages are buffered.</span>
+
+<span class="sd">    .. note:: The database schema is given in the documentation of the loggers.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">GET_MESSAGE_TIMEOUT</span> <span class="o">=</span> <span class="mf">0.25</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Number of seconds to wait for messages from internal queue&quot;&quot;&quot;</span>
+
+    <span class="n">MAX_TIME_BETWEEN_WRITES</span> <span class="o">=</span> <span class="mf">5.0</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Maximum number of seconds to wait between writes to the database&quot;&quot;&quot;</span>
+
+    <span class="n">MAX_BUFFER_SIZE_BEFORE_WRITES</span> <span class="o">=</span> <span class="mi">500</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Maximum number of messages to buffer before writing to the database&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file</span><span class="p">,</span> <span class="n">table_name</span><span class="o">=</span><span class="s2">&quot;messages&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param file: a `str` or since Python 3.7 a path like object that points</span>
+<span class="sd">                     to the database file to use</span>
+<span class="sd">        :param str table_name: the name of the table to store messages in</span>
+
+<span class="sd">        .. warning:: In contrary to all other readers/writers the Sqlite handlers</span>
+<span class="sd">                     do not accept file-like objects as the `file` parameter.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">SqliteWriter</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">file</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">table_name</span> <span class="o">=</span> <span class="n">table_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_db_filename</span> <span class="o">=</span> <span class="n">file</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stop_running_event</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Event</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_writer_thread</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_db_writer_thread</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_writer_thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_frames</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_write</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_create_db</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Creates a new databae or opens a connection to an existing one.</span>
+
+<span class="sd">        .. note::</span>
+<span class="sd">            You can&#39;t share sqlite3 connections between threads (by default)</span>
+<span class="sd">            hence we setup the db here. It has the upside of running async.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Creating sqlite database&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_conn</span> <span class="o">=</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_db_filename</span><span class="p">)</span>
+
+        <span class="c1"># create table structure</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">        CREATE TABLE IF NOT EXISTS </span><span class="si">{}</span>
+<span class="s2">        (</span>
+<span class="s2">          ts REAL,</span>
+<span class="s2">          arbitration_id INTEGER,</span>
+<span class="s2">          extended INTEGER,</span>
+<span class="s2">          remote INTEGER,</span>
+<span class="s2">          error INTEGER,</span>
+<span class="s2">          dlc INTEGER,</span>
+<span class="s2">          data BLOB</span>
+<span class="s2">        )</span>
+<span class="s2">        &quot;&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">table_name</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_insert_template</span> <span class="o">=</span> <span class="s2">&quot;INSERT INTO </span><span class="si">{}</span><span class="s2"> VALUES (?, ?, ?, ?, ?, ?, ?)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">table_name</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_db_writer_thread</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_create_db</span><span class="p">()</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="n">messages</span> <span class="o">=</span> <span class="p">[]</span> <span class="c1"># reset buffer</span>
+
+                <span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_message</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">GET_MESSAGE_TIMEOUT</span><span class="p">)</span>
+                <span class="k">while</span> <span class="n">msg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="c1">#log.debug(&quot;SqliteWriter: buffering message&quot;)</span>
+
+                    <span class="n">messages</span><span class="o">.</span><span class="n">append</span><span class="p">((</span>
+                        <span class="n">msg</span><span class="o">.</span><span class="n">timestamp</span><span class="p">,</span>
+                        <span class="n">msg</span><span class="o">.</span><span class="n">arbitration_id</span><span class="p">,</span>
+                        <span class="n">msg</span><span class="o">.</span><span class="n">is_extended_id</span><span class="p">,</span>
+                        <span class="n">msg</span><span class="o">.</span><span class="n">is_remote_frame</span><span class="p">,</span>
+                        <span class="n">msg</span><span class="o">.</span><span class="n">is_error_frame</span><span class="p">,</span>
+                        <span class="n">msg</span><span class="o">.</span><span class="n">dlc</span><span class="p">,</span>
+                        <span class="nb">memoryview</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+                    <span class="p">))</span>
+
+                    <span class="k">if</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_write</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX_TIME_BETWEEN_WRITES</span> <span class="ow">or</span> \
+                       <span class="nb">len</span><span class="p">(</span><span class="n">messages</span><span class="p">)</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX_BUFFER_SIZE_BEFORE_WRITES</span><span class="p">:</span>
+                       <span class="k">break</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="c1"># just go on</span>
+                        <span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_message</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">GET_MESSAGE_TIMEOUT</span><span class="p">)</span>
+
+                <span class="n">count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">messages</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">count</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_conn</span><span class="p">:</span>
+                        <span class="c1">#log.debug(&quot;Writing %d frames to db&quot;, count)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_conn</span><span class="o">.</span><span class="n">executemany</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_insert_template</span><span class="p">,</span> <span class="n">messages</span><span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span> <span class="c1"># make the changes visible to the entire database</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">num_frames</span> <span class="o">+=</span> <span class="n">count</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">last_write</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+                <span class="c1"># check if we are still supposed to run and go back up if yes</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop_running_event</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
+                    <span class="k">break</span>
+
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_conn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Stopped sqlite writer after writing </span><span class="si">%d</span><span class="s2"> messages&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_frames</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SqliteWriter.stop"><a class="viewcode-back" href="../../../listeners.html#can.SqliteWriter.stop">[docs]</a>    <span class="k">def</span> <span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Stops the reader an writes all remaining messages to the database. Thus, this</span>
+<span class="sd">        might take a while and block.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">BufferedReader</span><span class="o">.</span><span class="n">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stop_running_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_writer_thread</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+        <span class="n">BaseIOHandler</span><span class="o">.</span><span class="n">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../can.html" >can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.io.sqlite</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,258 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>can.listener &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css" />
+    
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../can.html" accesskey="U">can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.listener</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for can.listener</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module contains the implementation of `can.Listener` and some readers.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABCMeta</span><span class="p">,</span> <span class="n">abstractmethod</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="c1"># Python 3.7</span>
+    <span class="kn">from</span> <span class="nn">queue</span> <span class="kn">import</span> <span class="n">SimpleQueue</span><span class="p">,</span> <span class="n">Empty</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Python 3.0 - 3.6</span>
+        <span class="kn">from</span> <span class="nn">queue</span> <span class="kn">import</span> <span class="n">Queue</span> <span class="k">as</span> <span class="n">SimpleQueue</span><span class="p">,</span> <span class="n">Empty</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="c1"># Python 2</span>
+        <span class="kn">from</span> <span class="nn">Queue</span> <span class="kn">import</span> <span class="n">Queue</span> <span class="k">as</span> <span class="n">SimpleQueue</span><span class="p">,</span> <span class="n">Empty</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">asyncio</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">asyncio</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<div class="viewcode-block" id="Listener"><a class="viewcode-back" href="../../listeners.html#can.Listener">[docs]</a><span class="k">class</span> <span class="nc">Listener</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The basic listener that can be called directly to handle some</span>
+<span class="sd">    CAN message::</span>
+
+<span class="sd">        listener = SomeListener()</span>
+<span class="sd">        msg = my_bus.recv()</span>
+
+<span class="sd">        # now either call</span>
+<span class="sd">        listener(msg)</span>
+<span class="sd">        # or</span>
+<span class="sd">        listener.on_message_received(msg)</span>
+
+<span class="sd">        # Important to ensure all outputs are flushed</span>
+<span class="sd">        listener.stop()</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__metaclass__</span> <span class="o">=</span> <span class="n">ABCMeta</span>
+
+<div class="viewcode-block" id="Listener.on_message_received"><a class="viewcode-back" href="../../listeners.html#can.Listener.on_message_received">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">on_message_received</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;This method is called to handle the given message.</span>
+
+<span class="sd">        :param can.Message msg: the delivered message</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_message_received</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Listener.on_error"><a class="viewcode-back" href="../../listeners.html#can.Listener.on_error">[docs]</a>    <span class="k">def</span> <span class="nf">on_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;This method is called to handle any exception in the receive thread.</span>
+
+<span class="sd">        :param Exception exc: The exception causing the thread to stop</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="Listener.stop"><a class="viewcode-back" href="../../listeners.html#can.Listener.stop">[docs]</a>    <span class="k">def</span> <span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Stop handling new messages, carry out any final tasks to ensure</span>
+<span class="sd">        data is persisted and cleanup any open resources.</span>
+
+<span class="sd">        Concrete implementations override.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div></div>
+
+
+<span class="k">class</span> <span class="nc">RedirectReader</span><span class="p">(</span><span class="n">Listener</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A RedirectReader sends all received messages to another Bus.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bus</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bus</span> <span class="o">=</span> <span class="n">bus</span>
+
+    <span class="k">def</span> <span class="nf">on_message_received</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="BufferedReader"><a class="viewcode-back" href="../../listeners.html#can.BufferedReader">[docs]</a><span class="k">class</span> <span class="nc">BufferedReader</span><span class="p">(</span><span class="n">Listener</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A BufferedReader is a subclass of :class:`~can.Listener` which implements a</span>
+<span class="sd">    **message buffer**: that is, when the :class:`can.BufferedReader` instance is</span>
+<span class="sd">    notified of a new message it pushes it into a queue of messages waiting to</span>
+<span class="sd">    be serviced. The messages can then be fetched with</span>
+<span class="sd">    :meth:`~can.BufferedReader.get_message`.</span>
+
+<span class="sd">    Putting in messages after :meth:`~can.BufferedReader.stop` has be called will raise</span>
+<span class="sd">    an exception, see :meth:`~can.BufferedReader.on_message_received`.</span>
+
+<span class="sd">    :attr bool is_stopped: ``True`` iff the reader has been stopped</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># set to &quot;infinite&quot; size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span> <span class="o">=</span> <span class="n">SimpleQueue</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_stopped</span> <span class="o">=</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="BufferedReader.on_message_received"><a class="viewcode-back" href="../../listeners.html#can.BufferedReader.on_message_received">[docs]</a>    <span class="k">def</span> <span class="nf">on_message_received</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Append a message to the buffer.</span>
+
+<span class="sd">        :raises: BufferError</span>
+<span class="sd">            if the reader has already been stopped</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_stopped</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;reader has already been stopped&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="BufferedReader.get_message"><a class="viewcode-back" href="../../listeners.html#can.BufferedReader.get_message">[docs]</a>    <span class="k">def</span> <span class="nf">get_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Attempts to retrieve the latest message received by the instance. If no message is</span>
+<span class="sd">        available it blocks for given timeout or until a message is received, or else</span>
+<span class="sd">        returns None (whichever is shorter). This method does not block after</span>
+<span class="sd">        :meth:`can.BufferedReader.stop` has been called.</span>
+
+<span class="sd">        :param float timeout: The number of seconds to wait for a new message.</span>
+<span class="sd">        :rytpe: can.Message or None</span>
+<span class="sd">        :return: the message if there is one, or None if there is not.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">block</span><span class="o">=</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_stopped</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">Empty</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="BufferedReader.stop"><a class="viewcode-back" href="../../listeners.html#can.BufferedReader.stop">[docs]</a>    <span class="k">def</span> <span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Prohibits any more additions to this reader.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_stopped</span> <span class="o">=</span> <span class="kc">True</span></div></div>
+
+
+<span class="k">if</span> <span class="n">asyncio</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="AsyncBufferedReader"><a class="viewcode-back" href="../../listeners.html#can.AsyncBufferedReader">[docs]</a>    <span class="k">class</span> <span class="nc">AsyncBufferedReader</span><span class="p">(</span><span class="n">Listener</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A message buffer for use with :mod:`asyncio`.</span>
+
+<span class="sd">        See :ref:`asyncio` for how to use with :class:`can.Notifier`.</span>
+<span class="sd">        </span>
+<span class="sd">        Can also be used as an asynchronous iterator::</span>
+
+<span class="sd">            async for msg in reader:</span>
+<span class="sd">                print(msg)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+            <span class="c1"># set to &quot;infinite&quot; size</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Queue</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="n">loop</span><span class="p">)</span>
+
+<div class="viewcode-block" id="AsyncBufferedReader.on_message_received"><a class="viewcode-back" href="../../listeners.html#can.AsyncBufferedReader.on_message_received">[docs]</a>        <span class="k">def</span> <span class="nf">on_message_received</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Append a message to the buffer.</span>
+<span class="sd">            </span>
+<span class="sd">            Must only be called inside an event loop!</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="o">.</span><span class="n">put_nowait</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AsyncBufferedReader.get_message"><a class="viewcode-back" href="../../listeners.html#can.AsyncBufferedReader.get_message">[docs]</a>        <span class="k">def</span> <span class="nf">get_message</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Retrieve the latest message when awaited for::</span>
+<span class="sd">            </span>
+<span class="sd">                msg = await reader.get_message()</span>
+
+<span class="sd">            :rtype: can.Message</span>
+<span class="sd">            :return: The CAN message.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="o">.</span><span class="n">get</span><span class="p">()</span></div>
+
+        <span class="k">def</span> <span class="fm">__aiter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span>
+        
+        <span class="k">def</span> <span class="fm">__anext__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="o">.</span><span class="n">get</span><span class="p">()</span></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../can.html" >can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.listener</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

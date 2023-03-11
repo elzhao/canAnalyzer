@@ -1,0 +1,280 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Kvaser’s CANLIB &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
+    
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="CAN over Serial" href="serial.html" />
+    <link rel="prev" title="SocketCAN" href="socketcan.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="serial.html" title="CAN over Serial"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="socketcan.html" title="SocketCAN"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../interfaces.html" accesskey="U">CAN Interface Modules</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Kvaser’s CANLIB</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="kvaser-s-canlib">
+<span id="kvaserdoc"></span><h1>Kvaser’s CANLIB<a class="headerlink" href="#kvaser-s-canlib" title="Permalink to this heading">¶</a></h1>
+<p><a class="reference external" href="http://www.kvaser.com">Kvaser</a>’s CANLib SDK for Windows (also available on
+Linux).</p>
+<section id="bus">
+<h2>Bus<a class="headerlink" href="#bus" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.interfaces.kvaser.canlib.KvaserBus">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.interfaces.kvaser.canlib.</span></span><span class="sig-name descname"><span class="pre">KvaserBus</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">can_filters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/kvaser/canlib.html#KvaserBus"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.kvaser.canlib.KvaserBus" title="Permalink to this definition">¶</a></dt>
+<dd><p>The CAN Bus implemented for the Kvaser interface.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>channel</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – The Channel id to create this bus with.</p></li>
+<li><p><strong>can_filters</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a>) – See <a class="reference internal" href="../bus.html#can.BusABC.set_filters" title="can.BusABC.set_filters"><code class="xref py py-meth docutils literal notranslate"><span class="pre">can.BusABC.set_filters()</span></code></a>.</p></li>
+</ul>
+</dd>
+</dl>
+<p>Backend Configuration</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bitrate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – Bitrate of channel in bit/s</p></li>
+<li><p><strong>accept_virtual</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – If virtual channels should be accepted.</p></li>
+<li><p><strong>tseg1</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – Time segment 1, that is, the number of quanta from (but not including)
+the Sync Segment to the sampling point.
+If this parameter is not given, the Kvaser driver will try to choose
+all bit timing parameters from a set of defaults.</p></li>
+<li><p><strong>tseg2</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – Time segment 2, that is, the number of quanta from the sampling
+point to the end of the bit.</p></li>
+<li><p><strong>sjw</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – The Synchronization Jump Width. Decides the maximum number of time quanta
+that the controller can resynchronize every bit.</p></li>
+<li><p><strong>no_samp</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – Either 1 or 3. Some CAN controllers can also sample each bit three times.
+In this case, the bit will be sampled three quanta in a row,
+with the last sample being taken in the edge between TSEG1 and TSEG2.
+Three samples should only be used for relatively slow baudrates.</p></li>
+<li><p><strong>driver_mode</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – Silent or normal.</p></li>
+<li><p><strong>single_handle</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – Use one Kvaser CANLIB bus handle for both reading and writing.
+This can be set if reading and/or writing is done from one thread.</p></li>
+<li><p><strong>receive_own_messages</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – If messages transmitted should also be received back.
+Only works if single_handle is also False.
+If you want to receive messages from other applications on the same
+computer, set this to True or set single_handle to True.</p></li>
+<li><p><strong>fd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – If CAN-FD frames should be supported.</p></li>
+<li><p><strong>data_bitrate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – Which bitrate to use for data phase in CAN FD.
+Defaults to arbitration bitrate.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="can.interfaces.kvaser.canlib.KvaserBus.flash">
+<span class="sig-name descname"><span class="pre">flash</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">flash</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/kvaser/canlib.html#KvaserBus.flash"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.kvaser.canlib.KvaserBus.flash" title="Permalink to this definition">¶</a></dt>
+<dd><p>Turn on or off flashing of the device’s LED for physical
+identification purposes.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.interfaces.kvaser.canlib.KvaserBus.flush_tx_buffer">
+<span class="sig-name descname"><span class="pre">flush_tx_buffer</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/kvaser/canlib.html#KvaserBus.flush_tx_buffer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.kvaser.canlib.KvaserBus.flush_tx_buffer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wipeout the transmit buffer on the Kvaser.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.interfaces.kvaser.canlib.KvaserBus.send">
+<span class="sig-name descname"><span class="pre">send</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/kvaser/canlib.html#KvaserBus.send"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.kvaser.canlib.KvaserBus.send" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transmit a message to the CAN bus.</p>
+<p>Override this method to enable the transmit path.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>msg</strong> (<a class="reference internal" href="../message.html#can.Message" title="can.Message"><em>can.Message</em></a>) – A message object.</p></li>
+<li><p><strong>timeout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em> or </em><em>None</em>) – If &gt; 0, wait up to this many seconds for message to be ACK’ed or
+for transmit queue to be ready depending on driver implementation.
+If timeout is exceeded, an exception will be raised.
+Might not be supported by all interfaces.
+None blocks indefinitely.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="../api.html#can.CanError" title="can.CanError"><strong>can.CanError</strong></a> – if the message could not be sent</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.interfaces.kvaser.canlib.KvaserBus.shutdown">
+<span class="sig-name descname"><span class="pre">shutdown</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/kvaser/canlib.html#KvaserBus.shutdown"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.kvaser.canlib.KvaserBus.shutdown" title="Permalink to this definition">¶</a></dt>
+<dd><p>Called to carry out any interface specific cleanup required
+in shutting down a bus.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="internals">
+<h2>Internals<a class="headerlink" href="#internals" title="Permalink to this heading">¶</a></h2>
+<p>The Kvaser <a class="reference internal" href="../bus.html#can.Bus" title="can.Bus"><code class="xref py py-class docutils literal notranslate"><span class="pre">Bus</span></code></a> object with a physical CAN Bus can be operated in two
+modes; <code class="docutils literal notranslate"><span class="pre">single_handle</span></code> mode with one shared bus handle used for both reading and
+writing to the CAN bus, or with two separate bus handles.
+Two separate handles are needed if receiving and sending messages are done in
+different threads (see <a class="reference external" href="http://www.kvaser.com/canlib-webhelp/page_user_guide_threads_applications.html">Kvaser documentation</a>).</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Any objects inheriting from <a class="reference internal" href="#bus">Bus</a> should <em>not</em> directly
+use the interface handle(/s).</p>
+</div>
+<section id="message-filtering">
+<h3>Message filtering<a class="headerlink" href="#message-filtering" title="Permalink to this heading">¶</a></h3>
+<p>The Kvaser driver and hardware only supports setting one filter per handle.
+If one filter is requested, this is will be handled by the Kvaser driver.
+If more than one filter is needed, these will be handled in Python code
+in the <code class="docutils literal notranslate"><span class="pre">recv</span></code> method. If a message does not match any of the filters,
+<code class="docutils literal notranslate"><span class="pre">recv()</span></code> will return None.</p>
+</section>
+<section id="custom-methods">
+<h3>Custom methods<a class="headerlink" href="#custom-methods" title="Permalink to this heading">¶</a></h3>
+<p>This section contains Kvaser driver specific methods.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="can.interfaces.kvaser.canlib.KvaserBus.get_stats">
+<span class="sig-prename descclassname"><span class="pre">KvaserBus.</span></span><span class="sig-name descname"><span class="pre">get_stats</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/kvaser/canlib.html#KvaserBus.get_stats"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.kvaser.canlib.KvaserBus.get_stats" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieves the bus statistics.</p>
+<p>Use like so:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">stats</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">get_stats</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">stats</span><span class="p">)</span>
+<span class="go">std_data: 0, std_remote: 0, ext_data: 0, ext_remote: 0, err_frame: 0, bus_load: 0.0%, overruns: 0</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bus statistics.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>can.interfaces.kvaser.structures.BusStatistics</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="../index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Kvaser’s CANLIB</a><ul>
+<li><a class="reference internal" href="#bus">Bus</a><ul>
+<li><a class="reference internal" href="#can.interfaces.kvaser.canlib.KvaserBus"><code class="docutils literal notranslate"><span class="pre">KvaserBus</span></code></a><ul>
+<li><a class="reference internal" href="#can.interfaces.kvaser.canlib.KvaserBus.flash"><code class="docutils literal notranslate"><span class="pre">KvaserBus.flash()</span></code></a></li>
+<li><a class="reference internal" href="#can.interfaces.kvaser.canlib.KvaserBus.flush_tx_buffer"><code class="docutils literal notranslate"><span class="pre">KvaserBus.flush_tx_buffer()</span></code></a></li>
+<li><a class="reference internal" href="#can.interfaces.kvaser.canlib.KvaserBus.send"><code class="docutils literal notranslate"><span class="pre">KvaserBus.send()</span></code></a></li>
+<li><a class="reference internal" href="#can.interfaces.kvaser.canlib.KvaserBus.shutdown"><code class="docutils literal notranslate"><span class="pre">KvaserBus.shutdown()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#internals">Internals</a><ul>
+<li><a class="reference internal" href="#message-filtering">Message filtering</a></li>
+<li><a class="reference internal" href="#custom-methods">Custom methods</a><ul>
+<li><a class="reference internal" href="#can.interfaces.kvaser.canlib.KvaserBus.get_stats"><code class="docutils literal notranslate"><span class="pre">KvaserBus.get_stats()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="socketcan.html"
+                          title="previous chapter">SocketCAN</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="serial.html"
+                          title="next chapter">CAN over Serial</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/interfaces/kvaser.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="serial.html" title="CAN over Serial"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="socketcan.html" title="SocketCAN"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../interfaces.html" >CAN Interface Modules</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Kvaser’s CANLIB</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

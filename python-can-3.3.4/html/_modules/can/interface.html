@@ -1,0 +1,267 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>can.interface &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css" />
+    
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../can.html" accesskey="U">can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interface</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for can.interface</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module contains the base implementation of :class:`can.BusABC` as well</span>
+<span class="sd">as a list of all available backends and some implemented</span>
+<span class="sd">CyclicSendTasks.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">absolute_import</span><span class="p">,</span> <span class="n">print_function</span>
+
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">importlib</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="kn">import</span> <span class="nn">can</span>
+<span class="kn">from</span> <span class="nn">.bus</span> <span class="kn">import</span> <span class="n">BusABC</span>
+<span class="kn">from</span> <span class="nn">.broadcastmanager</span> <span class="kn">import</span> <span class="n">CyclicSendTaskABC</span><span class="p">,</span> <span class="n">MultiRateCyclicSendTaskABC</span>
+<span class="kn">from</span> <span class="nn">.util</span> <span class="kn">import</span> <span class="n">load_config</span>
+<span class="kn">from</span> <span class="nn">.interfaces</span> <span class="kn">import</span> <span class="n">BACKENDS</span>
+
+<span class="k">if</span> <span class="s1">&#39;linux&#39;</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span><span class="p">:</span>
+    <span class="c1"># Deprecated and undocumented access to SocketCAN cyclic tasks</span>
+    <span class="c1"># Will be removed in version 4.0</span>
+    <span class="kn">from</span> <span class="nn">can.interfaces.socketcan</span> <span class="kn">import</span> <span class="n">CyclicSendTask</span><span class="p">,</span> <span class="n">MultiRateCyclicSendTask</span>
+
+<span class="c1"># Required by &quot;detect_available_configs&quot; for argument interpretation</span>
+<span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span><span class="o">.</span><span class="n">major</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+    <span class="n">basestring</span> <span class="o">=</span> <span class="nb">str</span>
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;can.interface&#39;</span><span class="p">)</span>
+<span class="n">log_autodetect</span> <span class="o">=</span> <span class="n">log</span><span class="o">.</span><span class="n">getChild</span><span class="p">(</span><span class="s1">&#39;detect_available_configs&#39;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_get_class_for_interface</span><span class="p">(</span><span class="n">interface</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns the main bus class for the given interface.</span>
+
+<span class="sd">    :raises:</span>
+<span class="sd">        NotImplementedError if the interface is not known</span>
+<span class="sd">    :raises:</span>
+<span class="sd">        ImportError     if there was a problem while importing the</span>
+<span class="sd">                        interface or the bus class within that</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Find the correct backend</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">module_name</span><span class="p">,</span> <span class="n">class_name</span> <span class="o">=</span> <span class="n">BACKENDS</span><span class="p">[</span><span class="n">interface</span><span class="p">]</span>
+    <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;CAN interface &#39;</span><span class="si">{}</span><span class="s2">&#39; not supported&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">interface</span><span class="p">))</span>
+
+    <span class="c1"># Import the correct interface module</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">module</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">module_name</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+            <span class="s2">&quot;Cannot import module </span><span class="si">{}</span><span class="s2"> for CAN interface &#39;</span><span class="si">{}</span><span class="s2">&#39;: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">module_name</span><span class="p">,</span> <span class="n">interface</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Get the correct class</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">bus_class</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">class_name</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+            <span class="s2">&quot;Cannot import class </span><span class="si">{}</span><span class="s2"> from module </span><span class="si">{}</span><span class="s2"> for CAN interface &#39;</span><span class="si">{}</span><span class="s2">&#39;: </span><span class="si">{}</span><span class="s2">&quot;</span>
+                <span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">class_name</span><span class="p">,</span> <span class="n">module_name</span><span class="p">,</span> <span class="n">interface</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">bus_class</span>
+
+
+<div class="viewcode-block" id="Bus"><a class="viewcode-back" href="../../bus.html#can.Bus">[docs]</a><span class="k">class</span> <span class="nc">Bus</span><span class="p">(</span><span class="n">BusABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Bus wrapper with configuration loading.</span>
+
+<span class="sd">    Instantiates a CAN Bus of the given ``interface``, falls back to reading a</span>
+<span class="sd">    configuration file from default locations.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">channel</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Takes the same arguments as :class:`can.BusABC.__init__`.</span>
+<span class="sd">        Some might have a special meaning, see below.</span>
+
+<span class="sd">        :param channel:</span>
+<span class="sd">            Set to ``None`` to let it be reloved automatically from the default</span>
+<span class="sd">            configuration. That might fail, see below.</span>
+
+<span class="sd">            Expected type is backend dependent.</span>
+
+<span class="sd">        :param dict kwargs:</span>
+<span class="sd">            Should contain an ``interface`` key with a valid interface name. If not,</span>
+<span class="sd">            it is completed using :meth:`can.util.load_config`.</span>
+
+<span class="sd">        :raises: NotImplementedError</span>
+<span class="sd">            if the ``interface`` isn&#39;t recognized</span>
+
+<span class="sd">        :raises: ValueError</span>
+<span class="sd">            if the ``channel`` could not be determined</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># figure out the rest of the configuration; this might raise an error</span>
+        <span class="k">if</span> <span class="n">channel</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;channel&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">channel</span>
+        <span class="k">if</span> <span class="s1">&#39;context&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">context</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;context&#39;</span><span class="p">]</span>
+            <span class="k">del</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;context&#39;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">context</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">kwargs</span> <span class="o">=</span> <span class="n">load_config</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">kwargs</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">)</span>
+
+        <span class="c1"># resolve the bus class to use for that interface</span>
+        <span class="bp">cls</span> <span class="o">=</span> <span class="n">_get_class_for_interface</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;interface&#39;</span><span class="p">])</span>
+
+        <span class="c1"># remove the &#39;interface&#39; key so it doesn&#39;t get passed to the backend</span>
+        <span class="k">del</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;interface&#39;</span><span class="p">]</span>
+
+        <span class="c1"># make sure the bus can handle this config format</span>
+        <span class="k">if</span> <span class="s1">&#39;channel&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;&#39;channel&#39; argument missing&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">channel</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;channel&#39;</span><span class="p">]</span>
+            <span class="k">del</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;channel&#39;</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">channel</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Use the default channel for the backend</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">detect_available_configs</span><span class="p">(</span><span class="n">interfaces</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Detect all configurations/channels that the interfaces could</span>
+<span class="sd">    currently connect with.</span>
+
+<span class="sd">    This might be quite time consuming.</span>
+
+<span class="sd">    Automated configuration detection may not be implemented by</span>
+<span class="sd">    every interface on every platform. This method will not raise</span>
+<span class="sd">    an error in that case, but with rather return an empty list</span>
+<span class="sd">    for that interface.</span>
+
+<span class="sd">    :param interfaces: either</span>
+<span class="sd">        - the name of an interface to be searched in as a string,</span>
+<span class="sd">        - an iterable of interface names to search in, or</span>
+<span class="sd">        - `None` to search in all known interfaces.</span>
+<span class="sd">    :rtype: list[dict]</span>
+<span class="sd">    :return: an iterable of dicts, each suitable for usage in</span>
+<span class="sd">             the constructor of :class:`can.BusABC`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Figure out where to search</span>
+    <span class="k">if</span> <span class="n">interfaces</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># use an iterator over the keys so we do not have to copy it</span>
+        <span class="n">interfaces</span> <span class="o">=</span> <span class="n">BACKENDS</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">interfaces</span><span class="p">,</span> <span class="n">basestring</span><span class="p">):</span>
+        <span class="n">interfaces</span> <span class="o">=</span> <span class="p">[</span><span class="n">interfaces</span><span class="p">,</span> <span class="p">]</span>
+    <span class="c1"># else it is supposed to be an iterable of strings</span>
+
+    <span class="n">result</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">interface</span> <span class="ow">in</span> <span class="n">interfaces</span><span class="p">:</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">bus_class</span> <span class="o">=</span> <span class="n">_get_class_for_interface</span><span class="p">(</span><span class="n">interface</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+            <span class="n">log_autodetect</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;interface &quot;</span><span class="si">%s</span><span class="s1">&quot; can not be loaded for detection of available configurations&#39;</span><span class="p">,</span> <span class="n">interface</span><span class="p">)</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># get available channels</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">available</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">bus_class</span><span class="o">.</span><span class="n">_detect_available_configs</span><span class="p">())</span>
+        <span class="k">except</span> <span class="ne">NotImplementedError</span><span class="p">:</span>
+            <span class="n">log_autodetect</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;interface &quot;</span><span class="si">%s</span><span class="s1">&quot; does not support detection of available configurations&#39;</span><span class="p">,</span> <span class="n">interface</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">log_autodetect</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;interface &quot;</span><span class="si">%s</span><span class="s1">&quot; detected </span><span class="si">%i</span><span class="s1"> available configurations&#39;</span><span class="p">,</span> <span class="n">interface</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">available</span><span class="p">))</span>
+
+            <span class="c1"># add the interface name to the configs if it is not already present</span>
+            <span class="k">for</span> <span class="n">config</span> <span class="ow">in</span> <span class="n">available</span><span class="p">:</span>
+                <span class="k">if</span> <span class="s1">&#39;interface&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">config</span><span class="p">:</span>
+                    <span class="n">config</span><span class="p">[</span><span class="s1">&#39;interface&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">interface</span>
+
+            <span class="c1"># append to result</span>
+            <span class="n">result</span> <span class="o">+=</span> <span class="n">available</span>
+
+    <span class="k">return</span> <span class="n">result</span>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../can.html" >can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interface</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

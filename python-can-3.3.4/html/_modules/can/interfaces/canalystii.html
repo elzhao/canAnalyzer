@@ -1,0 +1,260 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>can.interfaces.canalystii &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css" />
+    
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../can.html" accesskey="U">can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.canalystii</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for can.interfaces.canalystii</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">ctypes</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">platform</span>
+<span class="kn">from</span> <span class="nn">can</span> <span class="kn">import</span> <span class="n">BusABC</span><span class="p">,</span> <span class="n">Message</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">VCI_INIT_CONFIG</span><span class="p">(</span><span class="n">Structure</span><span class="p">):</span>
+    <span class="n">_fields_</span> <span class="o">=</span> <span class="p">[(</span><span class="s2">&quot;AccCode&quot;</span><span class="p">,</span> <span class="n">c_int32</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;AccMask&quot;</span><span class="p">,</span> <span class="n">c_int32</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;Reserved&quot;</span><span class="p">,</span> <span class="n">c_int32</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;Filter&quot;</span><span class="p">,</span> <span class="n">c_ubyte</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;Timing0&quot;</span><span class="p">,</span> <span class="n">c_ubyte</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;Timing1&quot;</span><span class="p">,</span> <span class="n">c_ubyte</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;Mode&quot;</span><span class="p">,</span> <span class="n">c_ubyte</span><span class="p">)]</span>
+
+
+<span class="k">class</span> <span class="nc">VCI_CAN_OBJ</span><span class="p">(</span><span class="n">Structure</span><span class="p">):</span>
+    <span class="n">_fields_</span> <span class="o">=</span> <span class="p">[(</span><span class="s2">&quot;ID&quot;</span><span class="p">,</span> <span class="n">c_uint</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;TimeStamp&quot;</span><span class="p">,</span> <span class="n">c_int</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;TimeFlag&quot;</span><span class="p">,</span> <span class="n">c_byte</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;SendType&quot;</span><span class="p">,</span> <span class="n">c_byte</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;RemoteFlag&quot;</span><span class="p">,</span> <span class="n">c_byte</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;ExternFlag&quot;</span><span class="p">,</span> <span class="n">c_byte</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;DataLen&quot;</span><span class="p">,</span> <span class="n">c_byte</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;Data&quot;</span><span class="p">,</span> <span class="n">c_ubyte</span> <span class="o">*</span> <span class="mi">8</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;Reserved&quot;</span><span class="p">,</span> <span class="n">c_byte</span> <span class="o">*</span> <span class="mi">3</span><span class="p">)]</span>
+
+
+<span class="n">VCI_USBCAN2</span> <span class="o">=</span> <span class="mi">4</span>
+
+<span class="n">STATUS_OK</span> <span class="o">=</span> <span class="mh">0x01</span>
+<span class="n">STATUS_ERR</span> <span class="o">=</span> <span class="mh">0x00</span>
+
+<span class="n">TIMING_DICT</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="mi">5000</span><span class="p">:</span> <span class="p">(</span><span class="mh">0xBF</span><span class="p">,</span> <span class="mh">0xFF</span><span class="p">),</span>
+    <span class="mi">10000</span><span class="p">:</span> <span class="p">(</span><span class="mh">0x31</span><span class="p">,</span> <span class="mh">0x1C</span><span class="p">),</span>
+    <span class="mi">20000</span><span class="p">:</span> <span class="p">(</span><span class="mh">0x18</span><span class="p">,</span> <span class="mh">0x1C</span><span class="p">),</span>
+    <span class="mi">33330</span><span class="p">:</span> <span class="p">(</span><span class="mh">0x09</span><span class="p">,</span> <span class="mh">0x6F</span><span class="p">),</span>
+    <span class="mi">40000</span><span class="p">:</span> <span class="p">(</span><span class="mh">0x87</span><span class="p">,</span> <span class="mh">0xFF</span><span class="p">),</span>
+    <span class="mi">50000</span><span class="p">:</span> <span class="p">(</span><span class="mh">0x09</span><span class="p">,</span> <span class="mh">0x1C</span><span class="p">),</span>
+    <span class="mi">66660</span><span class="p">:</span> <span class="p">(</span><span class="mh">0x04</span><span class="p">,</span> <span class="mh">0x6F</span><span class="p">),</span>
+    <span class="mi">80000</span><span class="p">:</span> <span class="p">(</span><span class="mh">0x83</span><span class="p">,</span> <span class="mh">0xFF</span><span class="p">),</span>
+    <span class="mi">83330</span><span class="p">:</span> <span class="p">(</span><span class="mh">0x03</span><span class="p">,</span> <span class="mh">0x6F</span><span class="p">),</span>
+    <span class="mi">100000</span><span class="p">:</span> <span class="p">(</span><span class="mh">0x04</span><span class="p">,</span> <span class="mh">0x1C</span><span class="p">),</span>
+    <span class="mi">125000</span><span class="p">:</span> <span class="p">(</span><span class="mh">0x03</span><span class="p">,</span> <span class="mh">0x1C</span><span class="p">),</span>
+    <span class="mi">200000</span><span class="p">:</span> <span class="p">(</span><span class="mh">0x81</span><span class="p">,</span> <span class="mh">0xFA</span><span class="p">),</span>
+    <span class="mi">250000</span><span class="p">:</span> <span class="p">(</span><span class="mh">0x01</span><span class="p">,</span> <span class="mh">0x1C</span><span class="p">),</span>
+    <span class="mi">400000</span><span class="p">:</span> <span class="p">(</span><span class="mh">0x80</span><span class="p">,</span> <span class="mh">0xFA</span><span class="p">),</span>
+    <span class="mi">500000</span><span class="p">:</span> <span class="p">(</span><span class="mh">0x00</span><span class="p">,</span> <span class="mh">0x1C</span><span class="p">),</span>
+    <span class="mi">666000</span><span class="p">:</span> <span class="p">(</span><span class="mh">0x80</span><span class="p">,</span> <span class="mh">0xB6</span><span class="p">),</span>
+    <span class="mi">800000</span><span class="p">:</span> <span class="p">(</span><span class="mh">0x00</span><span class="p">,</span> <span class="mh">0x16</span><span class="p">),</span>
+    <span class="mi">1000000</span><span class="p">:</span> <span class="p">(</span><span class="mh">0x00</span><span class="p">,</span> <span class="mh">0x14</span><span class="p">),</span>
+<span class="p">}</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">platform</span><span class="o">.</span><span class="n">system</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;Windows&quot;</span><span class="p">:</span>
+        <span class="n">CANalystII</span> <span class="o">=</span> <span class="n">WinDLL</span><span class="p">(</span><span class="s2">&quot;./ControlCAN.dll&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">CANalystII</span> <span class="o">=</span> <span class="n">CDLL</span><span class="p">(</span><span class="s2">&quot;./libcontrolcan.so&quot;</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loaded CANalystII library&quot;</span><span class="p">)</span>
+<span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="n">CANalystII</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Cannot load CANalystII library&quot;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="CANalystIIBus"><a class="viewcode-back" href="../../../interfaces/canalystii.html#can.interfaces.canalystii.CANalystIIBus">[docs]</a><span class="k">class</span> <span class="nc">CANalystIIBus</span><span class="p">(</span><span class="n">BusABC</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">bitrate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">baud</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">Timing0</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">Timing1</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">can_filters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param channel: channel number</span>
+<span class="sd">        :param device: device number</span>
+<span class="sd">        :param baud: baud rate. Renamed to bitrate in next release.</span>
+<span class="sd">        :param Timing0: customize the timing register if baudrate is not specified</span>
+<span class="sd">        :param Timing1:</span>
+<span class="sd">        :param can_filters: filters for packet</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">CANalystIIBus</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">can_filters</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">channels</span> <span class="o">=</span> <span class="n">channel</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">channels</span> <span class="o">=</span> <span class="p">[</span><span class="n">channel</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Assume comma separated string of channels</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">channels</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">ch</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">channel</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">)]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">device</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">channel_info</span> <span class="o">=</span> <span class="s2">&quot;CANalyst-II: device </span><span class="si">{}</span><span class="s2">, channels </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">channels</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">baud</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;Argument baud will be deprecated in version 4, use bitrate instead&#39;</span><span class="p">,</span>
+                          <span class="ne">PendingDeprecationWarning</span><span class="p">)</span>
+            <span class="n">bitrate</span> <span class="o">=</span> <span class="n">baud</span>
+
+        <span class="k">if</span> <span class="n">bitrate</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">Timing0</span><span class="p">,</span> <span class="n">Timing1</span> <span class="o">=</span> <span class="n">TIMING_DICT</span><span class="p">[</span><span class="n">bitrate</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Bitrate is not supported&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">Timing0</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">Timing1</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Timing registers are not set&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">init_config</span> <span class="o">=</span> <span class="n">VCI_INIT_CONFIG</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mh">0xFFFFFFFF</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">Timing0</span><span class="p">,</span> <span class="n">Timing1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">CANalystII</span><span class="o">.</span><span class="n">VCI_OpenDevice</span><span class="p">(</span><span class="n">VCI_USBCAN2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="n">STATUS_ERR</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;VCI_OpenDevice Error&quot;</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">channel</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">channels</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">CANalystII</span><span class="o">.</span><span class="n">VCI_InitCAN</span><span class="p">(</span><span class="n">VCI_USBCAN2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">byref</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">init_config</span><span class="p">))</span> <span class="o">==</span> <span class="n">STATUS_ERR</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;VCI_InitCAN Error&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+                <span class="k">return</span>
+
+            <span class="k">if</span> <span class="n">CANalystII</span><span class="o">.</span><span class="n">VCI_StartCAN</span><span class="p">(</span><span class="n">VCI_USBCAN2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">channel</span><span class="p">)</span> <span class="o">==</span> <span class="n">STATUS_ERR</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;VCI_StartCAN Error&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+                <span class="k">return</span>
+
+    <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param msg: message to send</span>
+<span class="sd">        :param timeout: timeout is not used here</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">extern_flag</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_extended_id</span> <span class="k">else</span> <span class="mi">0</span>
+        <span class="n">raw_message</span> <span class="o">=</span> <span class="n">VCI_CAN_OBJ</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">arbitration_id</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_remote_frame</span><span class="p">,</span> <span class="n">extern_flag</span><span class="p">,</span> <span class="n">msg</span><span class="o">.</span><span class="n">dlc</span><span class="p">,</span> <span class="p">(</span><span class="n">c_ubyte</span> <span class="o">*</span> <span class="mi">8</span><span class="p">)(</span><span class="o">*</span><span class="n">msg</span><span class="o">.</span><span class="n">data</span><span class="p">),</span> <span class="p">(</span><span class="n">c_byte</span> <span class="o">*</span> <span class="mi">3</span><span class="p">)(</span><span class="o">*</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]))</span>
+
+        <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">channel</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">channel</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">channel</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">channels</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">channel</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">channels</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;msg.channel must be set when using multiple channels.&quot;</span><span class="p">)</span>
+
+        <span class="n">CANalystII</span><span class="o">.</span><span class="n">VCI_Transmit</span><span class="p">(</span><span class="n">VCI_USBCAN2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">byref</span><span class="p">(</span><span class="n">raw_message</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_recv_internal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param timeout: float in seconds</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">raw_message</span> <span class="o">=</span> <span class="n">VCI_CAN_OBJ</span><span class="p">()</span>
+
+        <span class="n">timeout</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span> <span class="k">if</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">int</span><span class="p">(</span><span class="n">timeout</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">CANalystII</span><span class="o">.</span><span class="n">VCI_Receive</span><span class="p">(</span><span class="n">VCI_USBCAN2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">channels</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">byref</span><span class="p">(</span><span class="n">raw_message</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="n">timeout</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">STATUS_ERR</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="n">Message</span><span class="p">(</span>
+                    <span class="n">timestamp</span><span class="o">=</span><span class="n">raw_message</span><span class="o">.</span><span class="n">TimeStamp</span> <span class="k">if</span> <span class="n">raw_message</span><span class="o">.</span><span class="n">TimeFlag</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span>
+                    <span class="n">arbitration_id</span><span class="o">=</span><span class="n">raw_message</span><span class="o">.</span><span class="n">ID</span><span class="p">,</span>
+                    <span class="n">is_remote_frame</span><span class="o">=</span><span class="n">raw_message</span><span class="o">.</span><span class="n">RemoteFlag</span><span class="p">,</span>
+                    <span class="n">channel</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                    <span class="n">dlc</span><span class="o">=</span><span class="n">raw_message</span><span class="o">.</span><span class="n">DataLen</span><span class="p">,</span>
+                    <span class="n">data</span><span class="o">=</span><span class="n">raw_message</span><span class="o">.</span><span class="n">Data</span><span class="p">,</span>
+                <span class="p">),</span>
+                <span class="kc">False</span><span class="p">,</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">flush_tx_buffer</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">channel</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">channels</span><span class="p">:</span>
+            <span class="n">CANalystII</span><span class="o">.</span><span class="n">VCI_ClearBuffer</span><span class="p">(</span><span class="n">VCI_USBCAN2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">channel</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">CANalystII</span><span class="o">.</span><span class="n">VCI_CloseDevice</span><span class="p">(</span><span class="n">VCI_USBCAN2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../can.html" >can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.canalystii</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

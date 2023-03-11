@@ -1,0 +1,175 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>History and Roadmap &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Developer’s Overview" href="development.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="development.html" title="Developer’s Overview"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">python-can 3.3.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">History and Roadmap</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="history-and-roadmap">
+<h1>History and Roadmap<a class="headerlink" href="#history-and-roadmap" title="Permalink to this heading">¶</a></h1>
+<section id="background">
+<h2>Background<a class="headerlink" href="#background" title="Permalink to this heading">¶</a></h2>
+<p>Originally written at <a class="reference external" href="https://dynamiccontrols.com">Dynamic Controls</a>
+for internal use testing and prototyping wheelchair components.</p>
+<p>Maintenance was taken over and the project was open sourced by Brian Thorne in 2010.</p>
+</section>
+<section id="acknowledgements">
+<h2>Acknowledgements<a class="headerlink" href="#acknowledgements" title="Permalink to this heading">¶</a></h2>
+<p>Originally written by Ben Powell as a thin wrapper around the Kvaser SDK
+to support the leaf device.</p>
+<p>Support for linux socketcan was added by Rose Lu as a summer coding
+project in 2011. The socketcan interface was helped immensely by Phil Dixon
+who wrote a leaf-socketcan driver for Linux.</p>
+<p>The pcan interface was contributed by Albert Bloomfield in 2013.
+Support for pcan on Mac was added by Kristian Sloth Lauszus in 2018.</p>
+<p>The usb2can interface was contributed by Joshua Villyard in 2015.</p>
+<p>The IXXAT VCI interface was contributed by Giuseppe Corbelli and funded
+by <a class="reference external" href="http://www.weightpack.com">Weightpack</a> in 2016.</p>
+<p>The NI-CAN and virtual interfaces plus the ASCII and BLF loggers were
+contributed by Christian Sandberg in 2016 and 2017. The BLF format is based on
+a C++ library by Toby Lorenz.</p>
+<p>The slcan interface, ASCII listener and log logger and listener were contributed
+by Eduard Bröcker in 2017.</p>
+<p>The NeoVi interface for ICS (Intrepid Control Systems) devices was contributed
+by Pierre-Luc Tessier Gagné in 2017.</p>
+<p>Many improvements all over the library, cleanups, unifications as well as more
+comprehensive documentation and CI testing was contributed by Felix Divo in 2017
+and 2018.</p>
+<p>The CAN viewer terminal script was contributed by Kristian Sloth Lauszus in 2018.</p>
+<p>The CANalyst-II interface was contributed by Shaoyu Meng in 2018.</p>
+</section>
+<section id="support-for-can-within-python">
+<h2>Support for CAN within Python<a class="headerlink" href="#support-for-can-within-python" title="Permalink to this heading">¶</a></h2>
+<p>Python natively supports the CAN protocol from version 3.3 on, if running on Linux:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Python version</p></th>
+<th class="head"><p>Feature</p></th>
+<th class="head"><p>Link</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>3.3</p></td>
+<td><p>Initial SocketCAN support</p></td>
+<td><p><a class="reference external" href="https://docs.python.org/3/library/socket.html#socket.AF_CAN">Docs</a></p></td>
+</tr>
+<tr class="row-odd"><td><p>3.4</p></td>
+<td><p>Broadcast Management (BCM) commands are natively supported</p></td>
+<td><p><a class="reference external" href="https://docs.python.org/3/library/socket.html#socket.CAN_BCM">Docs</a></p></td>
+</tr>
+<tr class="row-even"><td><p>3.5</p></td>
+<td><p>CAN FD support</p></td>
+<td><p><a class="reference external" href="https://docs.python.org/3/library/socket.html#socket.CAN_RAW_FD_FRAMES">Docs</a></p></td>
+</tr>
+<tr class="row-odd"><td><p>3.7</p></td>
+<td><p>Support for CAN ISO-TP</p></td>
+<td><p><a class="reference external" href="https://docs.python.org/3/library/socket.html#socket.CAN_ISOTP">Docs</a></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">History and Roadmap</a><ul>
+<li><a class="reference internal" href="#background">Background</a></li>
+<li><a class="reference internal" href="#acknowledgements">Acknowledgements</a></li>
+<li><a class="reference internal" href="#support-for-can-within-python">Support for CAN within Python</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="development.html"
+                          title="previous chapter">Developer’s Overview</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/history.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="development.html" title="Developer’s Overview"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">python-can 3.3.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">History and Roadmap</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

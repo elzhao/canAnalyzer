@@ -1,0 +1,133 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Virtual &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
+    
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="CANalyst-II" href="canalystii.html" />
+    <link rel="prev" title="Vector" href="vector.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="canalystii.html" title="CANalyst-II"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="vector.html" title="Vector"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../interfaces.html" accesskey="U">CAN Interface Modules</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Virtual</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="virtual">
+<h1>Virtual<a class="headerlink" href="#virtual" title="Permalink to this heading">¶</a></h1>
+<p>The virtual interface can be used as a way to write OS and driver independent
+tests.</p>
+<p>A virtual CAN bus that can be used for automatic tests. Any Bus instances
+connecting to the same channel (in the same python program) will get each
+others messages.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">can</span>
+
+<span class="n">bus1</span> <span class="o">=</span> <span class="n">can</span><span class="o">.</span><span class="n">interface</span><span class="o">.</span><span class="n">Bus</span><span class="p">(</span><span class="s1">&#39;test&#39;</span><span class="p">,</span> <span class="n">bustype</span><span class="o">=</span><span class="s1">&#39;virtual&#39;</span><span class="p">)</span>
+<span class="n">bus2</span> <span class="o">=</span> <span class="n">can</span><span class="o">.</span><span class="n">interface</span><span class="o">.</span><span class="n">Bus</span><span class="p">(</span><span class="s1">&#39;test&#39;</span><span class="p">,</span> <span class="n">bustype</span><span class="o">=</span><span class="s1">&#39;virtual&#39;</span><span class="p">)</span>
+
+<span class="n">msg1</span> <span class="o">=</span> <span class="n">can</span><span class="o">.</span><span class="n">Message</span><span class="p">(</span><span class="n">arbitration_id</span><span class="o">=</span><span class="mh">0xabcde</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">])</span>
+<span class="n">bus1</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">msg1</span><span class="p">)</span>
+<span class="n">msg2</span> <span class="o">=</span> <span class="n">bus2</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
+
+<span class="k">assert</span> <span class="n">msg1</span> <span class="o">==</span> <span class="n">msg2</span>
+</pre></div>
+</div>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="vector.html"
+                          title="previous chapter">Vector</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="canalystii.html"
+                          title="next chapter">CANalyst-II</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/interfaces/virtual.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="canalystii.html" title="CANalyst-II"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="vector.html" title="Vector"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../interfaces.html" >CAN Interface Modules</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Virtual</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

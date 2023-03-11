@@ -1,0 +1,225 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Developer’s Overview &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="History and Roadmap" href="history.html" />
+    <link rel="prev" title="Scripts" href="scripts.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="history.html" title="History and Roadmap"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="scripts.html" title="Scripts"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">python-can 3.3.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Developer’s Overview</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="developer-s-overview">
+<h1>Developer’s Overview<a class="headerlink" href="#developer-s-overview" title="Permalink to this heading">¶</a></h1>
+<section id="contributing">
+<h2>Contributing<a class="headerlink" href="#contributing" title="Permalink to this heading">¶</a></h2>
+<p>Contribute to source code, documentation, examples and report issues:
+<a class="reference external" href="https://github.com/hardbyte/python-can">https://github.com/hardbyte/python-can</a></p>
+<p>There is also a <a class="reference external" href="https://groups.google.com/forum/#!forum/python-can">python-can</a>
+mailing list for development discussion.</p>
+<p>Some more information about the internals of this library can be found
+in the chapter <a class="reference internal" href="internal-api.html#internalapi"><span class="std std-ref">Internal API</span></a>.
+There is also additional information on extending the <code class="docutils literal notranslate"><span class="pre">can.io</span></code> module.</p>
+</section>
+<section id="building-installing">
+<h2>Building &amp; Installing<a class="headerlink" href="#building-installing" title="Permalink to this heading">¶</a></h2>
+<p>The following assumes that the commands are executed from the root of the repository:</p>
+<ul class="simple">
+<li><p>The project can be built and installed with <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">setup.py</span> <span class="pre">build</span></code> and
+<code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">setup.py</span> <span class="pre">install</span></code>.</p></li>
+<li><p>The unit tests can be run with <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">setup.py</span> <span class="pre">test</span></code>. The tests can be run with <code class="docutils literal notranslate"><span class="pre">python2</span></code>,
+<code class="docutils literal notranslate"><span class="pre">python3</span></code>, <code class="docutils literal notranslate"><span class="pre">pypy</span></code> or <code class="docutils literal notranslate"><span class="pre">pypy3</span></code> to test with other python versions, if they are installed.
+Maybe, you need to execute <code class="docutils literal notranslate"><span class="pre">pip3</span> <span class="pre">install</span> <span class="pre">python-can[test]</span></code> (or only <code class="docutils literal notranslate"><span class="pre">pip</span></code> for Python 2),
+if some dependencies are missing.</p></li>
+<li><p>The docs can be built with <code class="docutils literal notranslate"><span class="pre">sphinx-build</span> <span class="pre">doc/</span> <span class="pre">doc/_build</span></code>. Appending <code class="docutils literal notranslate"><span class="pre">-n</span></code> to the command
+makes Sphinx complain about more subtle problems.</p></li>
+</ul>
+</section>
+<section id="creating-a-new-interface-backend">
+<h2>Creating a new interface/backend<a class="headerlink" href="#creating-a-new-interface-backend" title="Permalink to this heading">¶</a></h2>
+<p>These steps are a guideline on how to add a new backend to python-can.</p>
+<ul class="simple">
+<li><p>Create a module (either a <code class="docutils literal notranslate"><span class="pre">*.py</span></code> or an entire subdirectory depending
+on the complexity) inside <code class="docutils literal notranslate"><span class="pre">can.interfaces</span></code></p></li>
+<li><p>Implement the central part of the backend: the bus class that extends
+<a class="reference internal" href="bus.html#can.BusABC" title="can.BusABC"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.BusABC</span></code></a>.
+See <a class="reference internal" href="internal-api.html#businternals"><span class="std std-ref">Extending the BusABC class</span></a> for more info on this one!</p></li>
+<li><p>Register your backend bus class in <code class="docutils literal notranslate"><span class="pre">can.interface.BACKENDS</span></code> and
+<code class="docutils literal notranslate"><span class="pre">can.interfaces.VALID_INTERFACES</span></code> in <code class="docutils literal notranslate"><span class="pre">can.interfaces.__init__.py</span></code>.</p></li>
+<li><p>Add docs where appropriate. At a minimum add to <code class="docutils literal notranslate"><span class="pre">doc/interfaces.rst</span></code> and add
+a new interface specific document in <code class="docutils literal notranslate"><span class="pre">doc/interface/*</span></code>.</p></li>
+<li><p>Update <code class="docutils literal notranslate"><span class="pre">doc/scripts.rst</span></code> accordingly.</p></li>
+<li><p>Add tests in <code class="docutils literal notranslate"><span class="pre">test/*</span></code> where appropriate.</p></li>
+</ul>
+</section>
+<section id="code-structure">
+<h2>Code Structure<a class="headerlink" href="#code-structure" title="Permalink to this heading">¶</a></h2>
+<p>The modules in <code class="docutils literal notranslate"><span class="pre">python-can</span></code> are:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Module</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="interfaces.html"><span class="doc">interfaces</span></a></p></td>
+<td><p>Contains interface dependent code.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="bus.html"><span class="doc">bus</span></a></p></td>
+<td><p>Contains the interface independent Bus object.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="message.html"><span class="doc">message</span></a></p></td>
+<td><p>Contains the interface independent Message object.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="listeners.html"><span class="doc">io</span></a></p></td>
+<td><p>Contains a range of file readers and writers.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="bcm.html"><span class="doc">broadcastmanager</span></a></p></td>
+<td><p>Contains interface independent broadcast manager
+code.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="api.html"><span class="doc">CAN</span></a></p></td>
+<td><p>Legacy API. Deprecated.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="process-for-creating-a-new-release">
+<h2>Process for creating a new Release<a class="headerlink" href="#process-for-creating-a-new-release" title="Permalink to this heading">¶</a></h2>
+<p>Note many of these steps are carried out by the CI system on creating a tag in git.</p>
+<ul class="simple">
+<li><p>Release from the <code class="docutils literal notranslate"><span class="pre">master</span></code> branch.</p></li>
+<li><p>Update the library version in <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> using <a class="reference external" href="http://semver.org">semantic versioning</a>.</p></li>
+<li><p>Check if any deprecations are pending.</p></li>
+<li><p>Run all tests and examples against available hardware.</p></li>
+<li><p>Update <cite>CONTRIBUTORS.txt</cite> with any new contributors.</p></li>
+<li><p>For larger changes update <code class="docutils literal notranslate"><span class="pre">doc/history.rst</span></code>.</p></li>
+<li><p>Sanity check that documentation has stayed inline with code.</p></li>
+<li><p>Create a temporary virtual environment. Run <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">setup.py</span> <span class="pre">install</span></code> and <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">setup.py</span> <span class="pre">test</span></code>.</p></li>
+<li><p>Ensure the <code class="docutils literal notranslate"><span class="pre">setuptools</span></code> and <code class="docutils literal notranslate"><span class="pre">wheel</span></code> tools are up to date: <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">-U</span> <span class="pre">setuptools</span> <span class="pre">wheel</span></code>.</p></li>
+<li><p>Create and upload the distribution: <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">setup.py</span> <span class="pre">sdist</span> <span class="pre">bdist_wheel</span></code>.</p></li>
+<li><p>[Optionally] Sign the packages with gpg <code class="docutils literal notranslate"><span class="pre">gpg</span> <span class="pre">--detach-sign</span> <span class="pre">-a</span> <span class="pre">dist/python_can-X.Y.Z-py3-none-any.whl</span></code>.</p></li>
+<li><p>Upload with twine <code class="docutils literal notranslate"><span class="pre">twine</span> <span class="pre">upload</span> <span class="pre">dist/python-can-X.Y.Z*</span></code>.</p></li>
+<li><p>In a new virtual env check that the package can be installed with pip: <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">python-can==X.Y.Z</span></code>.</p></li>
+<li><p>Create a new tag in the repository.</p></li>
+<li><p>Check the release on
+<a class="reference external" href="https://pypi.org/project/python-can/#history">PyPi</a>,
+<a class="reference external" href="https://readthedocs.org/projects/python-can/versions/">Read the Docs</a> and
+<a class="reference external" href="https://github.com/hardbyte/python-can/releases">GitHub</a>.</p></li>
+</ul>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Developer’s Overview</a><ul>
+<li><a class="reference internal" href="#contributing">Contributing</a></li>
+<li><a class="reference internal" href="#building-installing">Building &amp; Installing</a></li>
+<li><a class="reference internal" href="#creating-a-new-interface-backend">Creating a new interface/backend</a></li>
+<li><a class="reference internal" href="#code-structure">Code Structure</a></li>
+<li><a class="reference internal" href="#process-for-creating-a-new-release">Process for creating a new Release</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="scripts.html"
+                          title="previous chapter">Scripts</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="history.html"
+                          title="next chapter">History and Roadmap</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/development.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="history.html" title="History and Roadmap"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="scripts.html" title="Scripts"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">python-can 3.3.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Developer’s Overview</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

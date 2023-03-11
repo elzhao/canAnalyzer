@@ -1,0 +1,519 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>can.interfaces.pcan.pcan &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css" />
+    
+    <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <script src="../../../../_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../../can.html" accesskey="U">can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.pcan.pcan</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for can.interfaces.pcan.pcan</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Enable basic CAN over a PCAN USB device.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">absolute_import</span><span class="p">,</span> <span class="n">print_function</span><span class="p">,</span> <span class="n">division</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">time</span>
+
+<span class="kn">import</span> <span class="nn">can</span>
+<span class="kn">from</span> <span class="nn">can</span> <span class="kn">import</span> <span class="n">CanError</span><span class="p">,</span> <span class="n">Message</span><span class="p">,</span> <span class="n">BusABC</span>
+<span class="kn">from</span> <span class="nn">can.bus</span> <span class="kn">import</span> <span class="n">BusState</span>
+<span class="kn">from</span> <span class="nn">can.util</span> <span class="kn">import</span> <span class="n">len2dlc</span><span class="p">,</span> <span class="n">dlc2len</span>
+<span class="kn">from</span> <span class="nn">.basic</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="n">boottimeEpoch</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">uptime</span>
+    <span class="kn">import</span> <span class="nn">datetime</span>
+    <span class="n">boottimeEpoch</span> <span class="o">=</span> <span class="p">(</span><span class="n">uptime</span><span class="o">.</span><span class="n">boottime</span><span class="p">()</span> <span class="o">-</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
+<span class="k">except</span><span class="p">:</span>
+    <span class="n">boottimeEpoch</span> <span class="o">=</span> <span class="mi">0</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="c1"># Try builtin Python 3 Windows API</span>
+    <span class="kn">from</span> <span class="nn">_overlapped</span> <span class="kn">import</span> <span class="n">CreateEvent</span>
+    <span class="kn">from</span> <span class="nn">_winapi</span> <span class="kn">import</span> <span class="n">WaitForSingleObject</span><span class="p">,</span> <span class="n">WAIT_OBJECT_0</span><span class="p">,</span> <span class="n">INFINITE</span>
+    <span class="n">HAS_EVENTS</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Try pywin32 package</span>
+        <span class="kn">from</span> <span class="nn">win32event</span> <span class="kn">import</span> <span class="n">CreateEvent</span>
+        <span class="kn">from</span> <span class="nn">win32event</span> <span class="kn">import</span> <span class="n">WaitForSingleObject</span><span class="p">,</span> <span class="n">WAIT_OBJECT_0</span><span class="p">,</span> <span class="n">INFINITE</span>
+        <span class="n">HAS_EVENTS</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="c1"># Use polling instead</span>
+        <span class="n">HAS_EVENTS</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="c1"># new in 3.3</span>
+    <span class="n">timeout_clock</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span>
+<span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+    <span class="c1"># deprecated in 3.3</span>
+    <span class="n">timeout_clock</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">clock</span>
+
+<span class="c1"># Set up logging</span>
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;can.pcan&#39;</span><span class="p">)</span>
+
+
+<span class="n">pcan_bitrate_objs</span> <span class="o">=</span> <span class="p">{</span><span class="mi">1000000</span> <span class="p">:</span> <span class="n">PCAN_BAUD_1M</span><span class="p">,</span>
+                      <span class="mi">800000</span> <span class="p">:</span> <span class="n">PCAN_BAUD_800K</span><span class="p">,</span>
+                      <span class="mi">500000</span> <span class="p">:</span> <span class="n">PCAN_BAUD_500K</span><span class="p">,</span>
+                      <span class="mi">250000</span> <span class="p">:</span> <span class="n">PCAN_BAUD_250K</span><span class="p">,</span>
+                      <span class="mi">125000</span> <span class="p">:</span> <span class="n">PCAN_BAUD_125K</span><span class="p">,</span>
+                      <span class="mi">100000</span> <span class="p">:</span> <span class="n">PCAN_BAUD_100K</span><span class="p">,</span>
+                       <span class="mi">95000</span> <span class="p">:</span> <span class="n">PCAN_BAUD_95K</span><span class="p">,</span>
+                       <span class="mi">83000</span> <span class="p">:</span> <span class="n">PCAN_BAUD_83K</span><span class="p">,</span>
+                       <span class="mi">50000</span> <span class="p">:</span> <span class="n">PCAN_BAUD_50K</span><span class="p">,</span>
+                       <span class="mi">47000</span> <span class="p">:</span> <span class="n">PCAN_BAUD_47K</span><span class="p">,</span>
+                       <span class="mi">33000</span> <span class="p">:</span> <span class="n">PCAN_BAUD_33K</span><span class="p">,</span>
+                       <span class="mi">20000</span> <span class="p">:</span> <span class="n">PCAN_BAUD_20K</span><span class="p">,</span>
+                       <span class="mi">10000</span> <span class="p">:</span> <span class="n">PCAN_BAUD_10K</span><span class="p">,</span>
+                        <span class="mi">5000</span> <span class="p">:</span> <span class="n">PCAN_BAUD_5K</span><span class="p">}</span>
+
+
+<span class="n">pcan_fd_parameter_list</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;nom_brp&#39;</span><span class="p">,</span> <span class="s1">&#39;nom_tseg1&#39;</span><span class="p">,</span> <span class="s1">&#39;nom_tseg2&#39;</span><span class="p">,</span> <span class="s1">&#39;nom_sjw&#39;</span><span class="p">,</span> <span class="s1">&#39;data_brp&#39;</span><span class="p">,</span> <span class="s1">&#39;data_tseg1&#39;</span><span class="p">,</span> <span class="s1">&#39;data_tseg2&#39;</span><span class="p">,</span> <span class="s1">&#39;data_sjw&#39;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="PcanBus"><a class="viewcode-back" href="../../../../interfaces/pcan.html#can.interfaces.pcan.PcanBus">[docs]</a><span class="k">class</span> <span class="nc">PcanBus</span><span class="p">(</span><span class="n">BusABC</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="o">=</span><span class="s1">&#39;PCAN_USBBUS1&#39;</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">BusState</span><span class="o">.</span><span class="n">ACTIVE</span><span class="p">,</span> <span class="n">bitrate</span><span class="o">=</span><span class="mi">500000</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A PCAN USB interface to CAN.</span>
+
+<span class="sd">        On top of the usual :class:`~can.Bus` methods provided,</span>
+<span class="sd">        the PCAN interface includes the :meth:`~can.interface.pcan.PcanBus.flash`</span>
+<span class="sd">        and :meth:`~can.interface.pcan.PcanBus.status` methods.</span>
+
+<span class="sd">        :param str channel:</span>
+<span class="sd">            The can interface name. An example would be &#39;PCAN_USBBUS1&#39;</span>
+<span class="sd">            Default is &#39;PCAN_USBBUS1&#39;</span>
+
+<span class="sd">        :param can.bus.BusState state:</span>
+<span class="sd">            BusState of the channel.</span>
+<span class="sd">            Default is ACTIVE</span>
+
+<span class="sd">        :param int bitrate:</span>
+<span class="sd">            Bitrate of channel in bit/s.</span>
+<span class="sd">            Default is 500 kbit/s.</span>
+<span class="sd">            Ignored if using CanFD.</span>
+
+<span class="sd">        :param bool fd:</span>
+<span class="sd">            Should the Bus be initialized in CAN-FD mode.</span>
+
+<span class="sd">        :param int f_clock:</span>
+<span class="sd">            Clock rate in Hz.</span>
+<span class="sd">            Any of the following:</span>
+<span class="sd">            20000000, 24000000, 30000000, 40000000, 60000000, 80000000.</span>
+<span class="sd">            Ignored if not using CAN-FD.</span>
+<span class="sd">            Pass either f_clock or f_clock_mhz.</span>
+
+<span class="sd">        :param int f_clock_mhz:</span>
+<span class="sd">            Clock rate in MHz.</span>
+<span class="sd">            Any of the following:</span>
+<span class="sd">            20, 24, 30, 40, 60, 80.</span>
+<span class="sd">            Ignored if not using CAN-FD.</span>
+<span class="sd">            Pass either f_clock or f_clock_mhz.</span>
+
+<span class="sd">        :param int nom_brp:</span>
+<span class="sd">            Clock prescaler for nominal time quantum.</span>
+<span class="sd">            In the range (1..1024)</span>
+<span class="sd">            Ignored if not using CAN-FD.</span>
+
+<span class="sd">        :param int nom_tseg1:</span>
+<span class="sd">            Time segment 1 for nominal bit rate,</span>
+<span class="sd">            that is, the number of quanta from (but not including)</span>
+<span class="sd">            the Sync Segment to the sampling point.</span>
+<span class="sd">            In the range (1..256).</span>
+<span class="sd">            Ignored if not using CAN-FD.</span>
+
+<span class="sd">        :param int nom_tseg2:</span>
+<span class="sd">            Time segment 2 for nominal bit rate,</span>
+<span class="sd">            that is, the number of quanta from the sampling</span>
+<span class="sd">            point to the end of the bit.</span>
+<span class="sd">            In the range (1..128).</span>
+<span class="sd">            Ignored if not using CAN-FD.</span>
+
+<span class="sd">        :param int nom_sjw:</span>
+<span class="sd">            Synchronization Jump Width for nominal bit rate.</span>
+<span class="sd">            Decides the maximum number of time quanta</span>
+<span class="sd">            that the controller can resynchronize every bit.</span>
+<span class="sd">            In the range (1..128).</span>
+<span class="sd">            Ignored if not using CAN-FD.</span>
+
+<span class="sd">        :param int data_brp:</span>
+<span class="sd">            Clock prescaler for fast data time quantum.</span>
+<span class="sd">            In the range (1..1024)</span>
+<span class="sd">            Ignored if not using CAN-FD.</span>
+
+<span class="sd">        :param int data_tseg1:</span>
+<span class="sd">            Time segment 1 for fast data bit rate,</span>
+<span class="sd">            that is, the number of quanta from (but not including)</span>
+<span class="sd">            the Sync Segment to the sampling point.</span>
+<span class="sd">            In the range (1..32).</span>
+<span class="sd">            Ignored if not using CAN-FD.</span>
+
+<span class="sd">        :param int data_tseg2:</span>
+<span class="sd">            Time segment 2 for fast data bit rate,</span>
+<span class="sd">            that is, the number of quanta from the sampling</span>
+<span class="sd">            point to the end of the bit.</span>
+<span class="sd">            In the range (1..16).</span>
+<span class="sd">            Ignored if not using CAN-FD.</span>
+
+<span class="sd">        :param int data_sjw:</span>
+<span class="sd">            Synchronization Jump Width for fast data bit rate.</span>
+<span class="sd">            Decides the maximum number of time quanta</span>
+<span class="sd">            that the controller can resynchronize every bit.</span>
+<span class="sd">            In the range (1..16).</span>
+<span class="sd">            Ignored if not using CAN-FD.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">channel_info</span> <span class="o">=</span> <span class="n">channel</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fd</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;fd&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">pcan_bitrate</span> <span class="o">=</span> <span class="n">pcan_bitrate_objs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">bitrate</span><span class="p">,</span> <span class="n">PCAN_BAUD_500K</span><span class="p">)</span>
+
+        <span class="n">hwtype</span> <span class="o">=</span> <span class="n">PCAN_TYPE_ISA</span>
+        <span class="n">ioport</span> <span class="o">=</span> <span class="mh">0x02A0</span>
+        <span class="n">interrupt</span> <span class="o">=</span> <span class="mi">11</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">m_objPCANBasic</span> <span class="o">=</span> <span class="n">PCANBasic</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">m_PcanHandle</span> <span class="o">=</span> <span class="nb">globals</span><span class="p">()[</span><span class="n">channel</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="n">BusState</span><span class="o">.</span><span class="n">ACTIVE</span> <span class="ow">or</span> <span class="n">state</span> <span class="ow">is</span> <span class="n">BusState</span><span class="o">.</span><span class="n">PASSIVE</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">state</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ArgumentError</span><span class="p">(</span><span class="s2">&quot;BusState must be Active or Passive&quot;</span><span class="p">)</span>
+
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fd</span><span class="p">:</span>
+            <span class="n">f_clock_val</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;f_clock&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">f_clock_val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">f_clock</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">=</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s1">&#39;f_clock_mhz&#39;</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;f_clock_mhz&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">f_clock</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">=</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s1">&#39;f_clock&#39;</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;f_clock&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+            
+            <span class="n">fd_parameters_values</span> <span class="o">=</span> <span class="p">[</span><span class="n">f_clock</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">=</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">pcan_fd_parameter_list</span> <span class="k">if</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">]</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">fd_bitrate</span> <span class="o">=</span> <span class="s1">&#39; ,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">fd_parameters_values</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;ascii&quot;</span><span class="p">)</span>
+
+
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">m_objPCANBasic</span><span class="o">.</span><span class="n">InitializeFD</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">m_PcanHandle</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fd_bitrate</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">m_objPCANBasic</span><span class="o">.</span><span class="n">Initialize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">m_PcanHandle</span><span class="p">,</span> <span class="n">pcan_bitrate</span><span class="p">,</span> <span class="n">hwtype</span><span class="p">,</span> <span class="n">ioport</span><span class="p">,</span> <span class="n">interrupt</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">result</span> <span class="o">!=</span> <span class="n">PCAN_ERROR_OK</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PcanError</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_formatted_error</span><span class="p">(</span><span class="n">result</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">HAS_EVENTS</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_recv_event</span> <span class="o">=</span> <span class="n">CreateEvent</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">m_objPCANBasic</span><span class="o">.</span><span class="n">SetValue</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">m_PcanHandle</span><span class="p">,</span> <span class="n">PCAN_RECEIVE_EVENT</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recv_event</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">result</span> <span class="o">!=</span> <span class="n">PCAN_ERROR_OK</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">PcanError</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_formatted_error</span><span class="p">(</span><span class="n">result</span><span class="p">))</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">PcanBus</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">channel</span><span class="o">=</span><span class="n">channel</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">,</span> <span class="n">bitrate</span><span class="o">=</span><span class="n">bitrate</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_get_formatted_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">error</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Gets the text using the GetErrorText API function.</span>
+<span class="sd">        If the function call succeeds, the translated error is returned. If it fails,</span>
+<span class="sd">        a text describing the current error is returned. Multiple errors may</span>
+<span class="sd">        be present in which case their individual messages are included in the</span>
+<span class="sd">        return string, one line per error.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">def</span> <span class="nf">bits</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Iterate over all the set bits in `n`, returning the masked bits at</span>
+<span class="sd">            the set indices</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="k">while</span> <span class="n">n</span><span class="p">:</span>
+                <span class="c1"># Create a mask to mask the lowest set bit in n</span>
+                <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="o">~</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="n">masked_value</span> <span class="o">=</span> <span class="n">n</span> <span class="o">&amp;</span> <span class="n">mask</span>
+                <span class="k">yield</span> <span class="n">masked_value</span>
+                <span class="c1"># Toggle the lowest set bit</span>
+                <span class="n">n</span> <span class="o">^=</span> <span class="n">masked_value</span>
+
+        <span class="n">stsReturn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">m_objPCANBasic</span><span class="o">.</span><span class="n">GetErrorText</span><span class="p">(</span><span class="n">error</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">stsReturn</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">PCAN_ERROR_OK</span><span class="p">:</span>
+            <span class="n">strings</span> <span class="o">=</span> <span class="p">[]</span>
+
+            <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bits</span><span class="p">(</span><span class="n">error</span><span class="p">):</span>
+                <span class="n">stsReturn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">m_objPCANBasic</span><span class="o">.</span><span class="n">GetErrorText</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">stsReturn</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">PCAN_ERROR_OK</span><span class="p">:</span>
+                    <span class="n">text</span> <span class="o">=</span> <span class="s2">&quot;An error occurred. Error-code&#39;s text (</span><span class="si">{0:X}</span><span class="s2">h) couldn&#39;t be retrieved&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">text</span> <span class="o">=</span> <span class="n">stsReturn</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">,</span> <span class="n">errors</span><span class="o">=</span><span class="s1">&#39;replace&#39;</span><span class="p">)</span>
+
+                <span class="n">strings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+
+            <span class="n">complete_text</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">strings</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">complete_text</span> <span class="o">=</span> <span class="n">stsReturn</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">,</span> <span class="n">errors</span><span class="o">=</span><span class="s1">&#39;replace&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">complete_text</span>
+
+    <span class="k">def</span> <span class="nf">status</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Query the PCAN bus status.</span>
+
+<span class="sd">        :rtype: int</span>
+<span class="sd">        :return: The status code. See values in **basic.PCAN_ERROR_**</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">m_objPCANBasic</span><span class="o">.</span><span class="n">GetStatus</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">m_PcanHandle</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">status_is_ok</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Convenience method to check that the bus status is OK</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">status</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">status</span> <span class="o">==</span> <span class="n">PCAN_ERROR_OK</span>
+
+    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Command the PCAN driver to reset the bus after an error.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">m_objPCANBasic</span><span class="o">.</span><span class="n">Reset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">m_PcanHandle</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">status</span> <span class="o">==</span> <span class="n">PCAN_ERROR_OK</span>
+
+    <span class="k">def</span> <span class="nf">_recv_internal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="p">):</span>
+
+        <span class="k">if</span> <span class="n">HAS_EVENTS</span><span class="p">:</span>
+            <span class="c1"># We will utilize events for the timeout handling</span>
+            <span class="n">timeout_ms</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">timeout</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">)</span> <span class="k">if</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">INFINITE</span>
+        <span class="k">elif</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Calculate max time</span>
+            <span class="n">end_time</span> <span class="o">=</span> <span class="n">timeout_clock</span><span class="p">()</span> <span class="o">+</span> <span class="n">timeout</span>
+
+        <span class="c1">#log.debug(&quot;Trying to read a msg&quot;)</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">while</span> <span class="n">result</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fd</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">m_objPCANBasic</span><span class="o">.</span><span class="n">ReadFD</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">m_PcanHandle</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">m_objPCANBasic</span><span class="o">.</span><span class="n">Read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">m_PcanHandle</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">PCAN_ERROR_QRCVEMPTY</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">HAS_EVENTS</span><span class="p">:</span>
+                    <span class="n">result</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">val</span> <span class="o">=</span> <span class="n">WaitForSingleObject</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_recv_event</span><span class="p">,</span> <span class="n">timeout_ms</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">val</span> <span class="o">!=</span> <span class="n">WAIT_OBJECT_0</span><span class="p">:</span>
+                        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span>
+                <span class="k">elif</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">timeout_clock</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="n">end_time</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">result</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.001</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">PCAN_ERROR_BUSLIGHT</span> <span class="o">|</span> <span class="n">PCAN_ERROR_BUSHEAVY</span><span class="p">):</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_formatted_error</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+                <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span>
+            <span class="k">elif</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">PCAN_ERROR_OK</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">PcanError</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_formatted_error</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+
+        <span class="n">theMsg</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">itsTimeStamp</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+
+        <span class="c1">#log.debug(&quot;Received a message&quot;)</span>
+
+        <span class="n">is_extended_id</span> <span class="o">=</span> <span class="p">(</span><span class="n">theMsg</span><span class="o">.</span><span class="n">MSGTYPE</span> <span class="o">&amp;</span> <span class="n">PCAN_MESSAGE_EXTENDED</span><span class="o">.</span><span class="n">value</span><span class="p">)</span> <span class="o">==</span> <span class="n">PCAN_MESSAGE_EXTENDED</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">is_remote_frame</span> <span class="o">=</span> <span class="p">(</span><span class="n">theMsg</span><span class="o">.</span><span class="n">MSGTYPE</span> <span class="o">&amp;</span> <span class="n">PCAN_MESSAGE_RTR</span><span class="o">.</span><span class="n">value</span><span class="p">)</span> <span class="o">==</span> <span class="n">PCAN_MESSAGE_RTR</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">is_fd</span> <span class="o">=</span> <span class="p">(</span><span class="n">theMsg</span><span class="o">.</span><span class="n">MSGTYPE</span> <span class="o">&amp;</span> <span class="n">PCAN_MESSAGE_FD</span><span class="o">.</span><span class="n">value</span><span class="p">)</span> <span class="o">==</span> <span class="n">PCAN_MESSAGE_FD</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">bitrate_switch</span> <span class="o">=</span> <span class="p">(</span><span class="n">theMsg</span><span class="o">.</span><span class="n">MSGTYPE</span> <span class="o">&amp;</span> <span class="n">PCAN_MESSAGE_BRS</span><span class="o">.</span><span class="n">value</span><span class="p">)</span> <span class="o">==</span> <span class="n">PCAN_MESSAGE_BRS</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">error_state_indicator</span> <span class="o">=</span> <span class="p">(</span><span class="n">theMsg</span><span class="o">.</span><span class="n">MSGTYPE</span> <span class="o">&amp;</span> <span class="n">PCAN_MESSAGE_ESI</span><span class="o">.</span><span class="n">value</span><span class="p">)</span> <span class="o">==</span> <span class="n">PCAN_MESSAGE_ESI</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">is_error_frame</span> <span class="o">=</span> <span class="p">(</span><span class="n">theMsg</span><span class="o">.</span><span class="n">MSGTYPE</span> <span class="o">&amp;</span> <span class="n">PCAN_MESSAGE_ERRFRAME</span><span class="o">.</span><span class="n">value</span><span class="p">)</span> <span class="o">==</span> <span class="n">PCAN_MESSAGE_ERRFRAME</span><span class="o">.</span><span class="n">value</span>
+
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fd</span><span class="p">:</span>
+            <span class="n">dlc</span> <span class="o">=</span> <span class="n">dlc2len</span><span class="p">(</span><span class="n">theMsg</span><span class="o">.</span><span class="n">DLC</span><span class="p">)</span>
+            <span class="n">timestamp</span> <span class="o">=</span> <span class="n">boottimeEpoch</span> <span class="o">+</span> <span class="p">(</span><span class="n">itsTimeStamp</span><span class="o">.</span><span class="n">value</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1000.0</span> <span class="o">*</span> <span class="mf">1000.0</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dlc</span> <span class="o">=</span> <span class="n">theMsg</span><span class="o">.</span><span class="n">LEN</span>
+            <span class="n">timestamp</span> <span class="o">=</span> <span class="n">boottimeEpoch</span> <span class="o">+</span> <span class="p">((</span><span class="n">itsTimeStamp</span><span class="o">.</span><span class="n">micros</span> <span class="o">+</span> <span class="mi">1000</span> <span class="o">*</span> <span class="n">itsTimeStamp</span><span class="o">.</span><span class="n">millis</span> <span class="o">+</span> <span class="mh">0x100000000</span> <span class="o">*</span> <span class="mi">1000</span> <span class="o">*</span> <span class="n">itsTimeStamp</span><span class="o">.</span><span class="n">millis_overflow</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1000.0</span> <span class="o">*</span> <span class="mf">1000.0</span><span class="p">))</span>
+
+
+        <span class="n">rx_msg</span> <span class="o">=</span> <span class="n">Message</span><span class="p">(</span><span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span><span class="p">,</span>
+                         <span class="n">arbitration_id</span><span class="o">=</span><span class="n">theMsg</span><span class="o">.</span><span class="n">ID</span><span class="p">,</span>
+                         <span class="n">is_extended_id</span><span class="o">=</span><span class="n">is_extended_id</span><span class="p">,</span>
+                         <span class="n">is_remote_frame</span><span class="o">=</span><span class="n">is_remote_frame</span><span class="p">,</span>
+                         <span class="n">is_error_frame</span><span class="o">=</span><span class="n">is_error_frame</span><span class="p">,</span>
+                         <span class="n">dlc</span><span class="o">=</span><span class="n">dlc</span><span class="p">,</span>
+                         <span class="n">data</span><span class="o">=</span><span class="n">theMsg</span><span class="o">.</span><span class="n">DATA</span><span class="p">[:</span><span class="n">dlc</span><span class="p">],</span>
+                         <span class="n">is_fd</span><span class="o">=</span><span class="n">is_fd</span><span class="p">,</span>
+                         <span class="n">bitrate_switch</span><span class="o">=</span><span class="n">bitrate_switch</span><span class="p">,</span>
+                         <span class="n">error_state_indicator</span><span class="o">=</span><span class="n">error_state_indicator</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">rx_msg</span><span class="p">,</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">msgType</span> <span class="o">=</span> <span class="n">PCAN_MESSAGE_EXTENDED</span><span class="o">.</span><span class="n">value</span> <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_extended_id</span> <span class="k">else</span> <span class="n">PCAN_MESSAGE_STANDARD</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_remote_frame</span><span class="p">:</span>
+            <span class="n">msgType</span> <span class="o">|=</span> <span class="n">PCAN_MESSAGE_RTR</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_error_frame</span><span class="p">:</span>
+            <span class="n">msgType</span> <span class="o">|=</span> <span class="n">PCAN_MESSAGE_ERRFRAME</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_fd</span><span class="p">:</span>
+            <span class="n">msgType</span> <span class="o">|=</span> <span class="n">PCAN_MESSAGE_FD</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">bitrate_switch</span><span class="p">:</span>
+            <span class="n">msgType</span> <span class="o">|=</span> <span class="n">PCAN_MESSAGE_BRS</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">error_state_indicator</span><span class="p">:</span>
+            <span class="n">msgType</span> <span class="o">|=</span> <span class="n">PCAN_MESSAGE_ESI</span><span class="o">.</span><span class="n">value</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fd</span><span class="p">:</span>
+            <span class="c1"># create a TPCANMsg message structure</span>
+            <span class="k">if</span> <span class="n">platform</span><span class="o">.</span><span class="n">system</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;Darwin&#39;</span><span class="p">:</span>
+                <span class="n">CANMsg</span> <span class="o">=</span> <span class="n">TPCANMsgFDMac</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">CANMsg</span> <span class="o">=</span> <span class="n">TPCANMsgFD</span><span class="p">()</span>
+            
+            <span class="c1"># configure the message. ID, Length of data, message type and data</span>
+            <span class="n">CANMsg</span><span class="o">.</span><span class="n">ID</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">arbitration_id</span>
+            <span class="n">CANMsg</span><span class="o">.</span><span class="n">DLC</span> <span class="o">=</span> <span class="n">len2dlc</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">dlc</span><span class="p">)</span>
+            <span class="n">CANMsg</span><span class="o">.</span><span class="n">MSGTYPE</span> <span class="o">=</span> <span class="n">msgType</span>
+
+            <span class="c1"># copy data</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">dlc</span><span class="p">):</span>
+                <span class="n">CANMsg</span><span class="o">.</span><span class="n">DATA</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Data: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">msg</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Type: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">data</span><span class="p">))</span>
+
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">m_objPCANBasic</span><span class="o">.</span><span class="n">WriteFD</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">m_PcanHandle</span><span class="p">,</span> <span class="n">CANMsg</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># create a TPCANMsg message structure</span>
+            <span class="k">if</span> <span class="n">platform</span><span class="o">.</span><span class="n">system</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;Darwin&#39;</span><span class="p">:</span>
+                <span class="n">CANMsg</span> <span class="o">=</span> <span class="n">TPCANMsgMac</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">CANMsg</span> <span class="o">=</span> <span class="n">TPCANMsg</span><span class="p">()</span>
+
+            <span class="c1"># configure the message. ID, Length of data, message type and data</span>
+            <span class="n">CANMsg</span><span class="o">.</span><span class="n">ID</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">arbitration_id</span>
+            <span class="n">CANMsg</span><span class="o">.</span><span class="n">LEN</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">dlc</span>
+            <span class="n">CANMsg</span><span class="o">.</span><span class="n">MSGTYPE</span> <span class="o">=</span> <span class="n">msgType</span>
+
+            <span class="c1"># if a remote frame will be sent, data bytes are not important.</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_remote_frame</span><span class="p">:</span>
+                <span class="c1"># copy data</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">CANMsg</span><span class="o">.</span><span class="n">LEN</span><span class="p">):</span>
+                    <span class="n">CANMsg</span><span class="o">.</span><span class="n">DATA</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Data: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">msg</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Type: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">data</span><span class="p">))</span>
+
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">m_objPCANBasic</span><span class="o">.</span><span class="n">Write</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">m_PcanHandle</span><span class="p">,</span> <span class="n">CANMsg</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">result</span> <span class="o">!=</span> <span class="n">PCAN_ERROR_OK</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PcanError</span><span class="p">(</span><span class="s2">&quot;Failed to send: &quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_formatted_error</span><span class="p">(</span><span class="n">result</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">flash</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flash</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Turn on or off flashing of the device&#39;s LED for physical</span>
+<span class="sd">        identification purposes.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">m_objPCANBasic</span><span class="o">.</span><span class="n">SetValue</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">m_PcanHandle</span><span class="p">,</span> <span class="n">PCAN_CHANNEL_IDENTIFYING</span><span class="p">,</span> <span class="nb">bool</span><span class="p">(</span><span class="n">flash</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">PcanBus</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">m_objPCANBasic</span><span class="o">.</span><span class="n">Uninitialize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">m_PcanHandle</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span>
+
+    <span class="nd">@state</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_state</span><span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_state</span> <span class="o">=</span> <span class="n">new_state</span>
+
+        <span class="k">if</span> <span class="n">new_state</span> <span class="ow">is</span> <span class="n">BusState</span><span class="o">.</span><span class="n">ACTIVE</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">m_objPCANBasic</span><span class="o">.</span><span class="n">SetValue</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">m_PcanHandle</span><span class="p">,</span> <span class="n">PCAN_LISTEN_ONLY</span><span class="p">,</span> <span class="n">PCAN_PARAMETER_OFF</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="n">new_state</span> <span class="ow">is</span> <span class="n">BusState</span><span class="o">.</span><span class="n">PASSIVE</span><span class="p">:</span>
+            <span class="c1"># When this mode is set, the CAN controller does not take part on active events (eg. transmit CAN messages)</span>
+            <span class="c1"># but stays in a passive mode (CAN monitor), in which it can analyse the traffic on the CAN bus used by a</span>
+            <span class="c1"># PCAN channel. See also the Philips Data Sheet &quot;SJA1000 Stand-alone CAN controller&quot;.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">m_objPCANBasic</span><span class="o">.</span><span class="n">SetValue</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">m_PcanHandle</span><span class="p">,</span> <span class="n">PCAN_LISTEN_ONLY</span><span class="p">,</span> <span class="n">PCAN_PARAMETER_ON</span><span class="p">)</span></div>
+
+
+<span class="k">class</span> <span class="nc">PcanError</span><span class="p">(</span><span class="n">CanError</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A generic error on a PCAN bus.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">pass</span>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../../can.html" >can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.pcan.pcan</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

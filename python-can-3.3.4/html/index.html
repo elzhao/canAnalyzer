@@ -1,0 +1,248 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>python-can &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Installation" href="installation.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="installation.html" title="Installation"
+             accesskey="N">next</a> |</li>
+        <li class="nav-item nav-item-0"><a href="#">python-can 3.3.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">python-can</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="python-can">
+<h1>python-can<a class="headerlink" href="#python-can" title="Permalink to this heading">¶</a></h1>
+<p>The <strong>python-can</strong> library provides Controller Area Network support for
+<a class="reference external" href="http://python.org/download/">Python</a>, providing common abstractions to
+different hardware devices, and a suite of utilities for sending and receiving
+messages on a CAN bus.</p>
+<p><strong>python-can</strong> runs any where Python runs; from high powered computers
+with commercial <cite>CAN to usb</cite> devices right down to low powered devices running
+linux such as a BeagleBone or RaspberryPi.</p>
+<p>More concretely, some example uses of the library:</p>
+<ul class="simple">
+<li><p>Passively logging what occurs on a CAN bus. For example monitoring a
+commercial vehicle using its <strong>OBD-II</strong> port.</p></li>
+<li><p>Testing of hardware that interacts via CAN. Modules found in
+modern cars, motocycles, boats, and even wheelchairs have had components tested
+from Python using this library.</p></li>
+<li><p>Prototyping new hardware modules or software algorithms in-the-loop. Easily
+interact with an existing bus.</p></li>
+<li><p>Creating virtual modules to prototype CAN bus communication.</p></li>
+</ul>
+<p>Brief example of the library in action: connecting to a CAN bus, creating and sending a message:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="ch">#!/usr/bin/env python</span>
+<span class="linenos"> 2</span><span class="c1"># coding: utf-8</span>
+<span class="linenos"> 3</span>
+<span class="linenos"> 4</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="linenos"> 5</span><span class="sd">This example shows how sending a single message works.</span>
+<span class="linenos"> 6</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="linenos"> 7</span>
+<span class="linenos"> 8</span><span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">print_function</span>
+<span class="linenos"> 9</span>
+<span class="linenos">10</span><span class="kn">import</span> <span class="nn">can</span>
+<span class="linenos">11</span>
+<span class="linenos">12</span><span class="k">def</span> <span class="nf">send_one</span><span class="p">():</span>
+<span class="linenos">13</span>
+<span class="linenos">14</span>    <span class="c1"># this uses the default configuration (for example from the config file)</span>
+<span class="linenos">15</span>    <span class="c1"># see https://python-can.readthedocs.io/en/stable/configuration.html</span>
+<span class="linenos">16</span>    <span class="c1">#bus = can.interface.Bus()</span>
+<span class="linenos">17</span>
+<span class="linenos">18</span>    <span class="c1"># Using specific buses works similar:</span>
+<span class="linenos">19</span>    <span class="n">bus</span> <span class="o">=</span> <span class="n">can</span><span class="o">.</span><span class="n">interface</span><span class="o">.</span><span class="n">Bus</span><span class="p">(</span><span class="n">bustype</span><span class="o">=</span><span class="s1">&#39;bmcan&#39;</span><span class="p">,</span> <span class="n">channel</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">bitrate</span><span class="o">=</span><span class="mi">500000</span><span class="p">,</span> <span class="n">data_bitrate</span><span class="o">=</span><span class="mi">2000000</span><span class="p">,</span> <span class="n">tres</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="linenos">20</span>    <span class="c1"># bus = can.interface.Bus(bustype=&#39;socketcan&#39;, channel=&#39;vcan0&#39;, bitrate=250000)</span>
+<span class="linenos">21</span>    <span class="c1"># bus = can.interface.Bus(bustype=&#39;pcan&#39;, channel=&#39;PCAN_USBBUS1&#39;, bitrate=250000)</span>
+<span class="linenos">22</span>    <span class="c1"># bus = can.interface.Bus(bustype=&#39;ixxat&#39;, channel=0, bitrate=250000)</span>
+<span class="linenos">23</span>    <span class="c1"># bus = can.interface.Bus(bustype=&#39;vector&#39;, app_name=&#39;CANalyzer&#39;, channel=0, bitrate=250000)</span>
+<span class="linenos">24</span>    <span class="c1"># ...</span>
+<span class="linenos">25</span>
+<span class="linenos">26</span>    <span class="n">msg</span> <span class="o">=</span> <span class="n">can</span><span class="o">.</span><span class="n">Message</span><span class="p">(</span><span class="n">arbitration_id</span><span class="o">=</span><span class="mh">0xc0ffee</span><span class="p">,</span>
+<span class="linenos">27</span>                      <span class="n">data</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">25</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+<span class="linenos">28</span>                      <span class="n">is_extended_id</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="linenos">29</span>
+<span class="linenos">30</span>    <span class="k">try</span><span class="p">:</span>
+<span class="linenos">31</span>        <span class="n">bus</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="linenos">32</span>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Message sent on </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">bus</span><span class="o">.</span><span class="n">channel_info</span><span class="p">))</span>
+<span class="linenos">33</span>    <span class="k">except</span> <span class="n">can</span><span class="o">.</span><span class="n">CanError</span><span class="p">:</span>
+<span class="linenos">34</span>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Message NOT sent&quot;</span><span class="p">)</span>
+<span class="linenos">35</span>
+<span class="linenos">36</span>    <span class="n">bus</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+<span class="linenos">37</span>
+<span class="linenos">38</span><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+<span class="linenos">39</span>    <span class="n">send_one</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Contents:</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#gnu-linux-dependencies">GNU/Linux dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#windows-dependencies">Windows dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#installing-python-can-in-development-mode">Installing python-can in development mode</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#in-code">In Code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#configuration-file">Configuration File</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#environment-variables">Environment Variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#interface-names">Interface Names</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">Library API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="bus.html">Bus</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bus.html#thread-safe-bus">Thread safe bus</a></li>
+<li class="toctree-l2"><a class="reference internal" href="message.html">Message</a></li>
+<li class="toctree-l2"><a class="reference internal" href="listeners.html">Listeners</a></li>
+<li class="toctree-l2"><a class="reference internal" href="asyncio.html">Asyncio support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bcm.html">Broadcast Manager</a></li>
+<li class="toctree-l2"><a class="reference internal" href="internal-api.html">Internal API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#utilities">Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#notifier">Notifier</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#errors">Errors</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="interfaces.html">CAN Interface Modules</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="interfaces/socketcan.html">SocketCAN</a></li>
+<li class="toctree-l2"><a class="reference internal" href="interfaces/kvaser.html">Kvaser’s CANLIB</a></li>
+<li class="toctree-l2"><a class="reference internal" href="interfaces/serial.html">CAN over Serial</a></li>
+<li class="toctree-l2"><a class="reference internal" href="interfaces/slcan.html">CAN over Serial / SLCAN</a></li>
+<li class="toctree-l2"><a class="reference internal" href="interfaces/ixxat.html">IXXAT Virtual CAN Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="interfaces/pcan.html">PCAN Basic API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="interfaces/usb2can.html">USB2CAN Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="interfaces/nican.html">NI-CAN</a></li>
+<li class="toctree-l2"><a class="reference internal" href="interfaces/iscan.html">isCAN</a></li>
+<li class="toctree-l2"><a class="reference internal" href="interfaces/neovi.html">NEOVI Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="interfaces/vector.html">Vector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="interfaces/virtual.html">Virtual</a></li>
+<li class="toctree-l2"><a class="reference internal" href="interfaces/canalystii.html">CANalyst-II</a></li>
+<li class="toctree-l2"><a class="reference internal" href="interfaces/systec.html">SYSTEC interface</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="scripts.html">Scripts</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="scripts.html#can-logger">can.logger</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scripts.html#can-player">can.player</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scripts.html#can-viewer">can.viewer</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Developer’s Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="development.html#contributing">Contributing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development.html#building-installing">Building &amp; Installing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development.html#creating-a-new-interface-backend">Creating a new interface/backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development.html#code-structure">Code Structure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development.html#process-for-creating-a-new-release">Process for creating a new Release</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="history.html">History and Roadmap</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="history.html#background">Background</a></li>
+<li class="toctree-l2"><a class="reference internal" href="history.html#acknowledgements">Acknowledgements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="history.html#support-for-can-within-python">Support for CAN within Python</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<section id="known-bugs">
+<h2>Known Bugs<a class="headerlink" href="#known-bugs" title="Permalink to this heading">¶</a></h2>
+<p>See the project <a class="reference external" href="https://github.com/hardbyte/python-can/issues">bug tracker</a> on github. Patches and pull requests very welcome!</p>
+<div class="admonition-documentation-generated admonition">
+<p class="admonition-title">Documentation generated</p>
+<p>Feb 19, 2023</p>
+</div>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="#">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">python-can</a><ul>
+<li><a class="reference internal" href="#known-bugs">Known Bugs</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="installation.html"
+                          title="next chapter">Installation</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/index.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="installation.html" title="Installation"
+             >next</a> |</li>
+        <li class="nav-item nav-item-0"><a href="#">python-can 3.3.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">python-can</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

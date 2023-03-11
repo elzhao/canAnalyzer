@@ -1,0 +1,273 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>can.interfaces.usb2can.usb2canabstractionlayer &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css" />
+    
+    <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <script src="../../../../_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../../can.html" accesskey="U">can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.usb2can.usb2canabstractionlayer</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for can.interfaces.usb2can.usb2canabstractionlayer</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This wrapper is for windows or direct access via CANAL API.</span>
+<span class="sd">Socket CAN is recommended under Unix/Linux systems.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">division</span><span class="p">,</span> <span class="n">print_function</span><span class="p">,</span> <span class="n">absolute_import</span>
+
+<span class="kn">from</span> <span class="nn">ctypes</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">struct</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="kn">import</span> <span class="nn">can</span>
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;can.usb2can&#39;</span><span class="p">)</span>
+
+<span class="c1"># type definitions</span>
+<span class="n">flags</span> <span class="o">=</span> <span class="n">c_ulong</span>
+<span class="n">pConfigureStr</span> <span class="o">=</span> <span class="n">c_char_p</span>
+<span class="n">handle</span> <span class="o">=</span> <span class="n">c_long</span>
+<span class="n">timeout</span> <span class="o">=</span> <span class="n">c_ulong</span>
+<span class="n">filter_t</span> <span class="o">=</span> <span class="n">c_ulong</span>
+
+<span class="c1"># flags mappings</span>
+<span class="n">IS_ERROR_FRAME</span> <span class="o">=</span> <span class="mi">4</span>
+<span class="n">IS_REMOTE_FRAME</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">IS_ID_TYPE</span> <span class="o">=</span> <span class="mi">1</span>
+
+<span class="n">CANAL_ERROR_SUCCESS</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">CANAL_ERROR_RCV_EMPTY</span> <span class="o">=</span> <span class="mi">19</span>
+<span class="n">CANAL_ERROR_TIMEOUT</span> <span class="o">=</span> <span class="mi">32</span>
+
+
+<span class="k">class</span> <span class="nc">CanalStatistics</span><span class="p">(</span><span class="n">Structure</span><span class="p">):</span>
+    <span class="n">_fields_</span> <span class="o">=</span> <span class="p">[(</span><span class="s1">&#39;ReceiveFrams&#39;</span><span class="p">,</span> <span class="n">c_ulong</span><span class="p">),</span>
+                <span class="p">(</span><span class="s1">&#39;TransmistFrams&#39;</span><span class="p">,</span> <span class="n">c_ulong</span><span class="p">),</span>
+                <span class="p">(</span><span class="s1">&#39;ReceiveData&#39;</span><span class="p">,</span> <span class="n">c_ulong</span><span class="p">),</span>
+                <span class="p">(</span><span class="s1">&#39;TransmitData&#39;</span><span class="p">,</span> <span class="n">c_ulong</span><span class="p">),</span>
+                <span class="p">(</span><span class="s1">&#39;Overruns&#39;</span><span class="p">,</span> <span class="n">c_ulong</span><span class="p">),</span>
+                <span class="p">(</span><span class="s1">&#39;BusWarnings&#39;</span><span class="p">,</span> <span class="n">c_ulong</span><span class="p">),</span>
+                <span class="p">(</span><span class="s1">&#39;BusOff&#39;</span><span class="p">,</span> <span class="n">c_ulong</span><span class="p">)]</span>
+
+
+<span class="n">stat</span> <span class="o">=</span> <span class="n">CanalStatistics</span>
+
+
+<span class="k">class</span> <span class="nc">CanalStatus</span><span class="p">(</span><span class="n">Structure</span><span class="p">):</span>
+    <span class="n">_fields_</span> <span class="o">=</span> <span class="p">[(</span><span class="s1">&#39;channel_status&#39;</span><span class="p">,</span> <span class="n">c_ulong</span><span class="p">),</span>
+                <span class="p">(</span><span class="s1">&#39;lasterrorcode&#39;</span><span class="p">,</span> <span class="n">c_ulong</span><span class="p">),</span>
+                <span class="p">(</span><span class="s1">&#39;lasterrorsubcode&#39;</span><span class="p">,</span> <span class="n">c_ulong</span><span class="p">),</span>
+                <span class="p">(</span><span class="s1">&#39;lasterrorstr&#39;</span><span class="p">,</span> <span class="n">c_byte</span> <span class="o">*</span> <span class="mi">80</span><span class="p">)]</span>
+
+
+<span class="c1"># data type for the CAN Message</span>
+<span class="k">class</span> <span class="nc">CanalMsg</span><span class="p">(</span><span class="n">Structure</span><span class="p">):</span>
+    <span class="n">_fields_</span> <span class="o">=</span> <span class="p">[(</span><span class="s1">&#39;flags&#39;</span><span class="p">,</span> <span class="n">c_ulong</span><span class="p">),</span>
+                <span class="p">(</span><span class="s1">&#39;obid&#39;</span><span class="p">,</span> <span class="n">c_ulong</span><span class="p">),</span>
+                <span class="p">(</span><span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="n">c_ulong</span><span class="p">),</span>
+                <span class="p">(</span><span class="s1">&#39;sizeData&#39;</span><span class="p">,</span> <span class="n">c_ubyte</span><span class="p">),</span>
+                <span class="p">(</span><span class="s1">&#39;data&#39;</span><span class="p">,</span> <span class="n">c_ubyte</span> <span class="o">*</span> <span class="mi">8</span><span class="p">),</span>
+                <span class="p">(</span><span class="s1">&#39;timestamp&#39;</span><span class="p">,</span> <span class="n">c_ulong</span><span class="p">)]</span>
+
+
+<div class="viewcode-block" id="Usb2CanAbstractionLayer"><a class="viewcode-back" href="../../../../interfaces/usb2can.html#can.interfaces.usb2can.Usb2CanAbstractionLayer">[docs]</a><span class="k">class</span> <span class="nc">Usb2CanAbstractionLayer</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A low level wrapper around the usb2can library.</span>
+
+<span class="sd">    Documentation: http://www.8devices.com/media/products/usb2can/downloads/CANAL_API.pdf</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dll</span><span class="o">=</span><span class="s2">&quot;usb2can.dll&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :type dll: str or path-like</span>
+<span class="sd">        :param dll (optional): the path to the usb2can DLL to load</span>
+<span class="sd">        :raises OSError: if the DLL could not be loaded</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__m_dllBasic</span> <span class="o">=</span> <span class="n">windll</span><span class="o">.</span><span class="n">LoadLibrary</span><span class="p">(</span><span class="n">dll</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">__m_dllBasic</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;DLL failed to load at path: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">dll</span><span class="p">))</span>
+
+<div class="viewcode-block" id="Usb2CanAbstractionLayer.open"><a class="viewcode-back" href="../../../../interfaces/usb2can.html#can.interfaces.usb2can.Usb2CanAbstractionLayer.open">[docs]</a>    <span class="k">def</span> <span class="nf">open</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">configuration</span><span class="p">,</span> <span class="n">flags</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Opens a CAN connection using `CanalOpen()`.</span>
+
+<span class="sd">        :param str configuration: the configuration: &quot;device_id; baudrate&quot;</span>
+<span class="sd">        :param int flags: the flags to be set</span>
+
+<span class="sd">        :raises can.CanError: if any error occurred</span>
+<span class="sd">        :returns: Valid handle for CANAL API functions on success</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># we need to convert this into bytes, since the underlying DLL cannot</span>
+            <span class="c1"># handle non-ASCII configuration strings</span>
+            <span class="n">config_ascii</span> <span class="o">=</span> <span class="n">configuration</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;ascii&#39;</span><span class="p">,</span> <span class="s1">&#39;ignore&#39;</span><span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__m_dllBasic</span><span class="o">.</span><span class="n">CanalOpen</span><span class="p">(</span><span class="n">config_ascii</span><span class="p">,</span> <span class="n">flags</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="c1"># catch any errors thrown by this call and re-raise</span>
+            <span class="k">raise</span> <span class="n">can</span><span class="o">.</span><span class="n">CanError</span><span class="p">(</span><span class="s1">&#39;CanalOpen() failed, configuration: &quot;</span><span class="si">{}</span><span class="s1">&quot;, error: </span><span class="si">{}</span><span class="s1">&#39;</span>
+                               <span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">configuration</span><span class="p">,</span> <span class="n">ex</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># any greater-than-zero return value indicates a success</span>
+            <span class="c1"># (see https://grodansparadis.gitbooks.io/the-vscp-daemon/canal_interface_specification.html)</span>
+            <span class="c1"># raise an error if the return code is &lt;= 0</span>
+            <span class="k">if</span> <span class="n">result</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">can</span><span class="o">.</span><span class="n">CanError</span><span class="p">(</span><span class="s1">&#39;CanalOpen() failed, configuration: &quot;</span><span class="si">{}</span><span class="s1">&quot;, return code: </span><span class="si">{}</span><span class="s1">&#39;</span>
+                                   <span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">configuration</span><span class="p">,</span> <span class="n">result</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">result</span></div>
+
+<div class="viewcode-block" id="Usb2CanAbstractionLayer.close"><a class="viewcode-back" href="../../../../interfaces/usb2can.html#can.interfaces.usb2can.Usb2CanAbstractionLayer.close">[docs]</a>    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handle</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__m_dllBasic</span><span class="o">.</span><span class="n">CanalClose</span><span class="p">(</span><span class="n">handle</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">res</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Failed to close&#39;</span><span class="p">)</span>
+            <span class="k">raise</span></div>
+
+<div class="viewcode-block" id="Usb2CanAbstractionLayer.send"><a class="viewcode-back" href="../../../../interfaces/usb2can.html#can.interfaces.usb2can.Usb2CanAbstractionLayer.send">[docs]</a>    <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handle</span><span class="p">,</span> <span class="n">msg</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__m_dllBasic</span><span class="o">.</span><span class="n">CanalSend</span><span class="p">(</span><span class="n">handle</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">res</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Sending error&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">can</span><span class="o">.</span><span class="n">CanError</span><span class="p">(</span><span class="s2">&quot;Failed to transmit frame&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Usb2CanAbstractionLayer.receive"><a class="viewcode-back" href="../../../../interfaces/usb2can.html#can.interfaces.usb2can.Usb2CanAbstractionLayer.receive">[docs]</a>    <span class="k">def</span> <span class="nf">receive</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handle</span><span class="p">,</span> <span class="n">msg</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__m_dllBasic</span><span class="o">.</span><span class="n">CanalReceive</span><span class="p">(</span><span class="n">handle</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">res</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Receive error&#39;</span><span class="p">)</span>
+            <span class="k">raise</span></div>
+
+<div class="viewcode-block" id="Usb2CanAbstractionLayer.blocking_send"><a class="viewcode-back" href="../../../../interfaces/usb2can.html#can.interfaces.usb2can.Usb2CanAbstractionLayer.blocking_send">[docs]</a>    <span class="k">def</span> <span class="nf">blocking_send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handle</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">timeout</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__m_dllBasic</span><span class="o">.</span><span class="n">CanalBlockingSend</span><span class="p">(</span><span class="n">handle</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">timeout</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">res</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Blocking send error&#39;</span><span class="p">)</span>
+            <span class="k">raise</span></div>
+
+<div class="viewcode-block" id="Usb2CanAbstractionLayer.blocking_receive"><a class="viewcode-back" href="../../../../interfaces/usb2can.html#can.interfaces.usb2can.Usb2CanAbstractionLayer.blocking_receive">[docs]</a>    <span class="k">def</span> <span class="nf">blocking_receive</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handle</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">timeout</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__m_dllBasic</span><span class="o">.</span><span class="n">CanalBlockingReceive</span><span class="p">(</span><span class="n">handle</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">timeout</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">res</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Blocking Receive Failed&#39;</span><span class="p">)</span>
+            <span class="k">raise</span></div>
+
+<div class="viewcode-block" id="Usb2CanAbstractionLayer.get_status"><a class="viewcode-back" href="../../../../interfaces/usb2can.html#can.interfaces.usb2can.Usb2CanAbstractionLayer.get_status">[docs]</a>    <span class="k">def</span> <span class="nf">get_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handle</span><span class="p">,</span> <span class="n">CanalStatus</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__m_dllBasic</span><span class="o">.</span><span class="n">CanalGetStatus</span><span class="p">(</span><span class="n">handle</span><span class="p">,</span> <span class="n">CanalStatus</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">res</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Get status failed&#39;</span><span class="p">)</span>
+            <span class="k">raise</span></div>
+
+<div class="viewcode-block" id="Usb2CanAbstractionLayer.get_statistics"><a class="viewcode-back" href="../../../../interfaces/usb2can.html#can.interfaces.usb2can.Usb2CanAbstractionLayer.get_statistics">[docs]</a>    <span class="k">def</span> <span class="nf">get_statistics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handle</span><span class="p">,</span> <span class="n">CanalStatistics</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__m_dllBasic</span><span class="o">.</span><span class="n">CanalGetStatistics</span><span class="p">(</span><span class="n">handle</span><span class="p">,</span> <span class="n">CanalStatistics</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">res</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Get Statistics failed&#39;</span><span class="p">)</span>
+            <span class="k">raise</span></div>
+
+<div class="viewcode-block" id="Usb2CanAbstractionLayer.get_version"><a class="viewcode-back" href="../../../../interfaces/usb2can.html#can.interfaces.usb2can.Usb2CanAbstractionLayer.get_version">[docs]</a>    <span class="k">def</span> <span class="nf">get_version</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__m_dllBasic</span><span class="o">.</span><span class="n">CanalGetVersion</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">res</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Failed to get version info&#39;</span><span class="p">)</span>
+            <span class="k">raise</span></div>
+
+<div class="viewcode-block" id="Usb2CanAbstractionLayer.get_library_version"><a class="viewcode-back" href="../../../../interfaces/usb2can.html#can.interfaces.usb2can.Usb2CanAbstractionLayer.get_library_version">[docs]</a>    <span class="k">def</span> <span class="nf">get_library_version</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__m_dllBasic</span><span class="o">.</span><span class="n">CanalGetDllVersion</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">res</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Failed to get DLL version&#39;</span><span class="p">)</span>
+            <span class="k">raise</span></div>
+
+<div class="viewcode-block" id="Usb2CanAbstractionLayer.get_vendor_string"><a class="viewcode-back" href="../../../../interfaces/usb2can.html#can.interfaces.usb2can.Usb2CanAbstractionLayer.get_vendor_string">[docs]</a>    <span class="k">def</span> <span class="nf">get_vendor_string</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__m_dllBasic</span><span class="o">.</span><span class="n">CanalGetVendorString</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">res</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Failed to get vendor string&#39;</span><span class="p">)</span>
+            <span class="k">raise</span></div></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../../can.html" >can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.usb2can.usb2canabstractionlayer</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

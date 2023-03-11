@@ -1,0 +1,723 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>can.interfaces.kvaser.canlib &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css" />
+    
+    <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <script src="../../../../_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../../can.html" accesskey="U">can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.kvaser.canlib</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for can.interfaces.kvaser.canlib</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Contains Python equivalents of the function and constant</span>
+<span class="sd">definitions in CANLIB&#39;s canlib.h, with some supporting functionality</span>
+<span class="sd">specific to Python.</span>
+
+<span class="sd">Copyright (C) 2010 Dynamic Controls</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">absolute_import</span>
+
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">ctypes</span>
+
+<span class="kn">from</span> <span class="nn">can</span> <span class="kn">import</span> <span class="n">CanError</span><span class="p">,</span> <span class="n">BusABC</span>
+<span class="kn">from</span> <span class="nn">can</span> <span class="kn">import</span> <span class="n">Message</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">constants</span> <span class="k">as</span> <span class="n">canstat</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">structures</span>
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;can.kvaser&#39;</span><span class="p">)</span>
+
+<span class="c1"># Resolution in us</span>
+<span class="n">TIMESTAMP_RESOLUTION</span> <span class="o">=</span> <span class="mi">10</span>
+
+<span class="n">TIMESTAMP_FACTOR</span> <span class="o">=</span> <span class="n">TIMESTAMP_RESOLUTION</span> <span class="o">/</span> <span class="mf">1000000.0</span>
+
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s2">&quot;win32&quot;</span><span class="p">:</span>
+        <span class="n">__canlib</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">windll</span><span class="o">.</span><span class="n">LoadLibrary</span><span class="p">(</span><span class="s2">&quot;canlib32&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">__canlib</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">cdll</span><span class="o">.</span><span class="n">LoadLibrary</span><span class="p">(</span><span class="s2">&quot;libcanlib.so&quot;</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;loaded kvaser&#39;s CAN library&quot;</span><span class="p">)</span>
+<span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Kvaser canlib is unavailable.&quot;</span><span class="p">)</span>
+    <span class="n">__canlib</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<span class="k">def</span> <span class="nf">_unimplemented_function</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">):</span>
+    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;This function is not implemented in canlib&#39;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">__get_canlib_function</span><span class="p">(</span><span class="n">func_name</span><span class="p">,</span> <span class="n">argtypes</span><span class="o">=</span><span class="p">[],</span> <span class="n">restype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">errcheck</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="c1">#log.debug(&#39;Wrapping function &quot;%s&quot;&#39; % func_name)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># e.g. canlib.canBusOn</span>
+        <span class="n">retval</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">__canlib</span><span class="p">,</span> <span class="n">func_name</span><span class="p">)</span>
+        <span class="c1">#log.debug(&#39;&quot;%s&quot; found in library&#39;, func_name)</span>
+    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;&quot;</span><span class="si">%s</span><span class="s1">&quot; was not found in library&#39;</span><span class="p">,</span> <span class="n">func_name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_unimplemented_function</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1">#log.debug(&#39;Result type is: %s&#39; % type(restype))</span>
+        <span class="c1">#log.debug(&#39;Error check function is: %s&#39; % errcheck)</span>
+        <span class="n">retval</span><span class="o">.</span><span class="n">argtypes</span> <span class="o">=</span> <span class="n">argtypes</span>
+        <span class="n">retval</span><span class="o">.</span><span class="n">restype</span> <span class="o">=</span> <span class="n">restype</span>
+        <span class="k">if</span> <span class="n">errcheck</span><span class="p">:</span>
+            <span class="n">retval</span><span class="o">.</span><span class="n">errcheck</span> <span class="o">=</span> <span class="n">errcheck</span>
+        <span class="k">return</span> <span class="n">retval</span>
+
+
+<span class="k">class</span> <span class="nc">CANLIBError</span><span class="p">(</span><span class="n">CanError</span><span class="p">):</span>
+
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Try to display errors that occur within the wrapped C library nicely.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">function</span><span class="p">,</span> <span class="n">error_code</span><span class="p">,</span> <span class="n">arguments</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">CANLIBError</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">error_code</span> <span class="o">=</span> <span class="n">error_code</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">function</span> <span class="o">=</span> <span class="n">function</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">arguments</span> <span class="o">=</span> <span class="n">arguments</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;Function </span><span class="si">%s</span><span class="s2"> failed - </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">function</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+                                            <span class="bp">self</span><span class="o">.</span><span class="n">__get_error_message</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="nf">__get_error_message</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">errmsg</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">create_string_buffer</span><span class="p">(</span><span class="mi">128</span><span class="p">)</span>
+        <span class="n">canGetErrorText</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">error_code</span><span class="p">,</span> <span class="n">errmsg</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">errmsg</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">errmsg</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;ascii&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">__convert_can_status_to_int</span><span class="p">(</span><span class="n">result</span><span class="p">):</span>
+    <span class="c1">#log.debug(&quot;converting can status to int {} ({})&quot;.format(result, type(result)))</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">result</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">value</span>
+
+
+<span class="k">def</span> <span class="nf">__check_status</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">function</span><span class="p">,</span> <span class="n">arguments</span><span class="p">):</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">__convert_can_status_to_int</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">canstat</span><span class="o">.</span><span class="n">CANSTATUS_SUCCESS</span><span class="p">(</span><span class="n">result</span><span class="p">):</span>
+        <span class="c1">#log.debug(&#39;Detected error while checking CAN status&#39;)</span>
+        <span class="k">raise</span> <span class="n">CANLIBError</span><span class="p">(</span><span class="n">function</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">arguments</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">result</span>
+
+
+<span class="k">def</span> <span class="nf">__check_status_read</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">function</span><span class="p">,</span> <span class="n">arguments</span><span class="p">):</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">__convert_can_status_to_int</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">canstat</span><span class="o">.</span><span class="n">CANSTATUS_SUCCESS</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="ow">and</span> <span class="n">result</span> <span class="o">!=</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canERR_NOMSG</span><span class="p">:</span>
+        <span class="c1">#log.debug(&#39;Detected error in which checking status read&#39;)</span>
+        <span class="k">raise</span> <span class="n">CANLIBError</span><span class="p">(</span><span class="n">function</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">arguments</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">result</span>
+
+
+<span class="k">class</span> <span class="nc">c_canHandle</span><span class="p">(</span><span class="n">ctypes</span><span class="o">.</span><span class="n">c_int</span><span class="p">):</span>
+    <span class="k">pass</span>
+
+<span class="n">canINVALID_HANDLE</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+
+
+<span class="k">def</span> <span class="nf">__handle_is_valid</span><span class="p">(</span><span class="n">handle</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">handle</span><span class="o">.</span><span class="n">value</span> <span class="o">&gt;</span> <span class="n">canINVALID_HANDLE</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">__check_bus_handle_validity</span><span class="p">(</span><span class="n">handle</span><span class="p">,</span> <span class="n">function</span><span class="p">,</span> <span class="n">arguments</span><span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">__handle_is_valid</span><span class="p">(</span><span class="n">handle</span><span class="p">):</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">__convert_can_status_to_int</span><span class="p">(</span><span class="n">handle</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="n">CANLIBError</span><span class="p">(</span><span class="n">function</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">arguments</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">handle</span>
+
+<span class="k">if</span> <span class="n">__canlib</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">canInitializeLibrary</span> <span class="o">=</span> <span class="n">__get_canlib_function</span><span class="p">(</span><span class="s2">&quot;canInitializeLibrary&quot;</span><span class="p">)</span>
+
+    <span class="n">canGetErrorText</span> <span class="o">=</span> <span class="n">__get_canlib_function</span><span class="p">(</span><span class="s2">&quot;canGetErrorText&quot;</span><span class="p">,</span>
+                                            <span class="n">argtypes</span><span class="o">=</span><span class="p">[</span><span class="n">canstat</span><span class="o">.</span><span class="n">c_canStatus</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_char_p</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">],</span>
+                                            <span class="n">restype</span><span class="o">=</span><span class="n">canstat</span><span class="o">.</span><span class="n">c_canStatus</span><span class="p">,</span>
+                                            <span class="n">errcheck</span><span class="o">=</span><span class="n">__check_status</span><span class="p">)</span>
+
+    <span class="c1"># TODO wrap this type of function to provide a more Pythonic API</span>
+    <span class="n">canGetNumberOfChannels</span> <span class="o">=</span> <span class="n">__get_canlib_function</span><span class="p">(</span><span class="s2">&quot;canGetNumberOfChannels&quot;</span><span class="p">,</span>
+                                                   <span class="n">argtypes</span><span class="o">=</span><span class="p">[</span><span class="n">ctypes</span><span class="o">.</span><span class="n">c_void_p</span><span class="p">],</span>
+                                                   <span class="n">restype</span><span class="o">=</span><span class="n">canstat</span><span class="o">.</span><span class="n">c_canStatus</span><span class="p">,</span>
+                                                   <span class="n">errcheck</span><span class="o">=</span><span class="n">__check_status</span><span class="p">)</span>
+
+    <span class="n">kvReadTimer</span> <span class="o">=</span> <span class="n">__get_canlib_function</span><span class="p">(</span><span class="s2">&quot;kvReadTimer&quot;</span><span class="p">,</span>
+                                        <span class="n">argtypes</span><span class="o">=</span><span class="p">[</span><span class="n">c_canHandle</span><span class="p">,</span>
+                                                  <span class="n">ctypes</span><span class="o">.</span><span class="n">POINTER</span><span class="p">(</span><span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">)],</span>
+                                        <span class="n">restype</span><span class="o">=</span><span class="n">canstat</span><span class="o">.</span><span class="n">c_canStatus</span><span class="p">,</span>
+                                        <span class="n">errcheck</span><span class="o">=</span><span class="n">__check_status</span><span class="p">)</span>
+
+    <span class="n">canBusOff</span> <span class="o">=</span> <span class="n">__get_canlib_function</span><span class="p">(</span><span class="s2">&quot;canBusOff&quot;</span><span class="p">,</span>
+                                      <span class="n">argtypes</span><span class="o">=</span><span class="p">[</span><span class="n">c_canHandle</span><span class="p">],</span>
+                                      <span class="n">restype</span><span class="o">=</span><span class="n">canstat</span><span class="o">.</span><span class="n">c_canStatus</span><span class="p">,</span>
+                                      <span class="n">errcheck</span><span class="o">=</span><span class="n">__check_status</span><span class="p">)</span>
+
+    <span class="n">canBusOn</span> <span class="o">=</span> <span class="n">__get_canlib_function</span><span class="p">(</span><span class="s2">&quot;canBusOn&quot;</span><span class="p">,</span>
+                                     <span class="n">argtypes</span><span class="o">=</span><span class="p">[</span><span class="n">c_canHandle</span><span class="p">],</span>
+                                     <span class="n">restype</span><span class="o">=</span><span class="n">canstat</span><span class="o">.</span><span class="n">c_canStatus</span><span class="p">,</span>
+                                     <span class="n">errcheck</span><span class="o">=</span><span class="n">__check_status</span><span class="p">)</span>
+
+    <span class="n">canClose</span> <span class="o">=</span> <span class="n">__get_canlib_function</span><span class="p">(</span><span class="s2">&quot;canClose&quot;</span><span class="p">,</span>
+                                     <span class="n">argtypes</span><span class="o">=</span><span class="p">[</span><span class="n">c_canHandle</span><span class="p">],</span>
+                                     <span class="n">restype</span><span class="o">=</span><span class="n">canstat</span><span class="o">.</span><span class="n">c_canStatus</span><span class="p">,</span>
+                                     <span class="n">errcheck</span><span class="o">=</span><span class="n">__check_status</span><span class="p">)</span>
+
+    <span class="n">canOpenChannel</span> <span class="o">=</span> <span class="n">__get_canlib_function</span><span class="p">(</span><span class="s2">&quot;canOpenChannel&quot;</span><span class="p">,</span>
+                                           <span class="n">argtypes</span><span class="o">=</span><span class="p">[</span><span class="n">ctypes</span><span class="o">.</span><span class="n">c_int</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_int</span><span class="p">],</span>
+                                           <span class="n">restype</span><span class="o">=</span><span class="n">c_canHandle</span><span class="p">,</span>
+                                           <span class="n">errcheck</span><span class="o">=</span><span class="n">__check_bus_handle_validity</span><span class="p">)</span>
+
+    <span class="n">canSetBusParams</span> <span class="o">=</span> <span class="n">__get_canlib_function</span><span class="p">(</span><span class="s2">&quot;canSetBusParams&quot;</span><span class="p">,</span>
+                                            <span class="n">argtypes</span><span class="o">=</span><span class="p">[</span><span class="n">c_canHandle</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_long</span><span class="p">,</span>
+                                                      <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">,</span>
+                                                      <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">,</span>
+                                                      <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">],</span>
+                                            <span class="n">restype</span><span class="o">=</span><span class="n">canstat</span><span class="o">.</span><span class="n">c_canStatus</span><span class="p">,</span>
+                                            <span class="n">errcheck</span><span class="o">=</span><span class="n">__check_status</span><span class="p">)</span>
+
+    <span class="n">canSetBusParamsFd</span> <span class="o">=</span> <span class="n">__get_canlib_function</span><span class="p">(</span><span class="s2">&quot;canSetBusParamsFd&quot;</span><span class="p">,</span>
+                                            <span class="n">argtypes</span><span class="o">=</span><span class="p">[</span><span class="n">c_canHandle</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_long</span><span class="p">,</span>
+                                                      <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">,</span>
+                                                      <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">],</span>
+                                            <span class="n">restype</span><span class="o">=</span><span class="n">canstat</span><span class="o">.</span><span class="n">c_canStatus</span><span class="p">,</span>
+                                            <span class="n">errcheck</span><span class="o">=</span><span class="n">__check_status</span><span class="p">)</span>
+
+    <span class="n">canSetBusOutputControl</span> <span class="o">=</span> <span class="n">__get_canlib_function</span><span class="p">(</span><span class="s2">&quot;canSetBusOutputControl&quot;</span><span class="p">,</span>
+                                                   <span class="n">argtypes</span><span class="o">=</span><span class="p">[</span><span class="n">c_canHandle</span><span class="p">,</span>
+                                                             <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">],</span>
+                                                   <span class="n">restype</span><span class="o">=</span><span class="n">canstat</span><span class="o">.</span><span class="n">c_canStatus</span><span class="p">,</span>
+                                                   <span class="n">errcheck</span><span class="o">=</span><span class="n">__check_status</span><span class="p">)</span>
+
+    <span class="n">canSetAcceptanceFilter</span> <span class="o">=</span> <span class="n">__get_canlib_function</span><span class="p">(</span><span class="s2">&quot;canSetAcceptanceFilter&quot;</span><span class="p">,</span>
+                                                   <span class="n">argtypes</span><span class="o">=</span><span class="p">[</span>
+                                                       <span class="n">c_canHandle</span><span class="p">,</span>
+                                                       <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">,</span>
+                                                       <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">,</span>
+                                                       <span class="n">ctypes</span><span class="o">.</span><span class="n">c_int</span>
+                                                   <span class="p">],</span>
+                                                   <span class="n">restype</span><span class="o">=</span><span class="n">canstat</span><span class="o">.</span><span class="n">c_canStatus</span><span class="p">,</span>
+                                                   <span class="n">errcheck</span><span class="o">=</span><span class="n">__check_status</span><span class="p">)</span>
+
+    <span class="n">canReadWait</span> <span class="o">=</span> <span class="n">__get_canlib_function</span><span class="p">(</span><span class="s2">&quot;canReadWait&quot;</span><span class="p">,</span>
+                                        <span class="n">argtypes</span><span class="o">=</span><span class="p">[</span><span class="n">c_canHandle</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_void_p</span><span class="p">,</span>
+                                                  <span class="n">ctypes</span><span class="o">.</span><span class="n">c_void_p</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_void_p</span><span class="p">,</span>
+                                                  <span class="n">ctypes</span><span class="o">.</span><span class="n">c_void_p</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_void_p</span><span class="p">,</span>
+                                                  <span class="n">ctypes</span><span class="o">.</span><span class="n">c_long</span><span class="p">],</span>
+                                        <span class="n">restype</span><span class="o">=</span><span class="n">canstat</span><span class="o">.</span><span class="n">c_canStatus</span><span class="p">,</span>
+                                        <span class="n">errcheck</span><span class="o">=</span><span class="n">__check_status_read</span><span class="p">)</span>
+
+    <span class="n">canWrite</span> <span class="o">=</span> <span class="n">__get_canlib_function</span><span class="p">(</span><span class="s2">&quot;canWrite&quot;</span><span class="p">,</span>
+                                     <span class="n">argtypes</span><span class="o">=</span><span class="p">[</span>
+                                         <span class="n">c_canHandle</span><span class="p">,</span>
+                                         <span class="n">ctypes</span><span class="o">.</span><span class="n">c_long</span><span class="p">,</span>
+                                         <span class="n">ctypes</span><span class="o">.</span><span class="n">c_void_p</span><span class="p">,</span>
+                                         <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">,</span>
+                                         <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">],</span>
+                                     <span class="n">restype</span><span class="o">=</span><span class="n">canstat</span><span class="o">.</span><span class="n">c_canStatus</span><span class="p">,</span>
+                                     <span class="n">errcheck</span><span class="o">=</span><span class="n">__check_status</span><span class="p">)</span>
+
+    <span class="n">canWriteSync</span> <span class="o">=</span> <span class="n">__get_canlib_function</span><span class="p">(</span><span class="s2">&quot;canWriteSync&quot;</span><span class="p">,</span>
+                                         <span class="n">argtypes</span><span class="o">=</span><span class="p">[</span><span class="n">c_canHandle</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ulong</span><span class="p">],</span>
+                                         <span class="n">restype</span><span class="o">=</span><span class="n">canstat</span><span class="o">.</span><span class="n">c_canStatus</span><span class="p">,</span>
+                                         <span class="n">errcheck</span><span class="o">=</span><span class="n">__check_status</span><span class="p">)</span>
+
+    <span class="n">canIoCtl</span> <span class="o">=</span> <span class="n">__get_canlib_function</span><span class="p">(</span><span class="s2">&quot;canIoCtl&quot;</span><span class="p">,</span>
+                                     <span class="n">argtypes</span><span class="o">=</span><span class="p">[</span><span class="n">c_canHandle</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">,</span>
+                                               <span class="n">ctypes</span><span class="o">.</span><span class="n">c_void_p</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">],</span>
+                                     <span class="n">restype</span><span class="o">=</span><span class="n">canstat</span><span class="o">.</span><span class="n">c_canStatus</span><span class="p">,</span>
+                                     <span class="n">errcheck</span><span class="o">=</span><span class="n">__check_status</span><span class="p">)</span>
+
+    <span class="n">canGetVersion</span> <span class="o">=</span> <span class="n">__get_canlib_function</span><span class="p">(</span><span class="s2">&quot;canGetVersion&quot;</span><span class="p">,</span>
+                                          <span class="n">restype</span><span class="o">=</span><span class="n">ctypes</span><span class="o">.</span><span class="n">c_short</span><span class="p">,</span>
+                                          <span class="n">errcheck</span><span class="o">=</span><span class="n">__check_status</span><span class="p">)</span>
+
+    <span class="n">kvFlashLeds</span> <span class="o">=</span> <span class="n">__get_canlib_function</span><span class="p">(</span><span class="s2">&quot;kvFlashLeds&quot;</span><span class="p">,</span>
+                                        <span class="n">argtypes</span><span class="o">=</span><span class="p">[</span><span class="n">c_canHandle</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_int</span><span class="p">,</span>
+                                                  <span class="n">ctypes</span><span class="o">.</span><span class="n">c_int</span><span class="p">],</span>
+                                        <span class="n">restype</span><span class="o">=</span><span class="n">ctypes</span><span class="o">.</span><span class="n">c_short</span><span class="p">,</span>
+                                        <span class="n">errcheck</span><span class="o">=</span><span class="n">__check_status</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s2">&quot;win32&quot;</span><span class="p">:</span>
+        <span class="n">canGetVersionEx</span> <span class="o">=</span> <span class="n">__get_canlib_function</span><span class="p">(</span><span class="s2">&quot;canGetVersionEx&quot;</span><span class="p">,</span>
+                                                <span class="n">argtypes</span><span class="o">=</span><span class="p">[</span><span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">],</span>
+                                                <span class="n">restype</span><span class="o">=</span><span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">,</span>
+                                                <span class="n">errcheck</span><span class="o">=</span><span class="n">__check_status</span><span class="p">)</span>
+
+    <span class="n">canGetChannelData</span> <span class="o">=</span> <span class="n">__get_canlib_function</span><span class="p">(</span><span class="s2">&quot;canGetChannelData&quot;</span><span class="p">,</span>
+                                          <span class="n">argtypes</span><span class="o">=</span><span class="p">[</span><span class="n">ctypes</span><span class="o">.</span><span class="n">c_int</span><span class="p">,</span>
+                                                    <span class="n">ctypes</span><span class="o">.</span><span class="n">c_int</span><span class="p">,</span>
+                                                    <span class="n">ctypes</span><span class="o">.</span><span class="n">c_void_p</span><span class="p">,</span>
+                                                    <span class="n">ctypes</span><span class="o">.</span><span class="n">c_size_t</span><span class="p">],</span>
+                                          <span class="n">restype</span><span class="o">=</span><span class="n">canstat</span><span class="o">.</span><span class="n">c_canStatus</span><span class="p">,</span>
+                                          <span class="n">errcheck</span><span class="o">=</span><span class="n">__check_status</span><span class="p">)</span>
+
+    <span class="n">canRequestBusStatistics</span> <span class="o">=</span> <span class="n">__get_canlib_function</span><span class="p">(</span><span class="s2">&quot;canRequestBusStatistics&quot;</span><span class="p">,</span>
+                                                    <span class="n">argtypes</span><span class="o">=</span><span class="p">[</span><span class="n">c_canHandle</span><span class="p">],</span>
+                                                    <span class="n">restype</span><span class="o">=</span><span class="n">canstat</span><span class="o">.</span><span class="n">c_canStatus</span><span class="p">,</span>
+                                                    <span class="n">errcheck</span><span class="o">=</span><span class="n">__check_status</span><span class="p">)</span>
+
+    <span class="n">canGetBusStatistics</span> <span class="o">=</span> <span class="n">__get_canlib_function</span><span class="p">(</span><span class="s2">&quot;canGetBusStatistics&quot;</span><span class="p">,</span>
+                                                <span class="n">argtypes</span><span class="o">=</span><span class="p">[</span><span class="n">c_canHandle</span><span class="p">,</span>
+                                                          <span class="n">ctypes</span><span class="o">.</span><span class="n">POINTER</span><span class="p">(</span><span class="n">structures</span><span class="o">.</span><span class="n">BusStatistics</span><span class="p">),</span>
+                                                          <span class="n">ctypes</span><span class="o">.</span><span class="n">c_size_t</span><span class="p">],</span>
+                                                <span class="n">restype</span><span class="o">=</span><span class="n">canstat</span><span class="o">.</span><span class="n">c_canStatus</span><span class="p">,</span>
+                                                <span class="n">errcheck</span><span class="o">=</span><span class="n">__check_status</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">init_kvaser_library</span><span class="p">():</span>
+    <span class="k">if</span> <span class="n">__canlib</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Initializing Kvaser CAN library&quot;</span><span class="p">)</span>
+            <span class="n">canInitializeLibrary</span><span class="p">()</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;CAN library initialized&quot;</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Kvaser canlib could not be initialized.&quot;</span><span class="p">)</span>
+
+
+<span class="n">DRIVER_MODE_SILENT</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">DRIVER_MODE_NORMAL</span> <span class="o">=</span> <span class="kc">True</span>
+
+
+<span class="n">BITRATE_OBJS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="mi">1000000</span><span class="p">:</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canBITRATE_1M</span><span class="p">,</span>
+    <span class="mi">500000</span><span class="p">:</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canBITRATE_500K</span><span class="p">,</span>
+    <span class="mi">250000</span><span class="p">:</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canBITRATE_250K</span><span class="p">,</span>
+    <span class="mi">125000</span><span class="p">:</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canBITRATE_125K</span><span class="p">,</span>
+    <span class="mi">100000</span><span class="p">:</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canBITRATE_100K</span><span class="p">,</span>
+    <span class="mi">83000</span><span class="p">:</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canBITRATE_83K</span><span class="p">,</span>
+    <span class="mi">62000</span><span class="p">:</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canBITRATE_62K</span><span class="p">,</span>
+    <span class="mi">50000</span><span class="p">:</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canBITRATE_50K</span><span class="p">,</span>
+    <span class="mi">10000</span><span class="p">:</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canBITRATE_10K</span>
+<span class="p">}</span>
+
+<span class="n">BITRATE_FD</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="mi">500000</span><span class="p">:</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canFD_BITRATE_500K_80P</span><span class="p">,</span>
+    <span class="mi">1000000</span><span class="p">:</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canFD_BITRATE_1M_80P</span><span class="p">,</span>
+    <span class="mi">2000000</span><span class="p">:</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canFD_BITRATE_2M_80P</span><span class="p">,</span>
+    <span class="mi">4000000</span><span class="p">:</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canFD_BITRATE_4M_80P</span><span class="p">,</span>
+    <span class="mi">8000000</span><span class="p">:</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canFD_BITRATE_8M_60P</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="KvaserBus"><a class="viewcode-back" href="../../../../interfaces/kvaser.html#can.interfaces.kvaser.canlib.KvaserBus">[docs]</a><span class="k">class</span> <span class="nc">KvaserBus</span><span class="p">(</span><span class="n">BusABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The CAN Bus implemented for the Kvaser interface.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">can_filters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param int channel:</span>
+<span class="sd">            The Channel id to create this bus with.</span>
+
+<span class="sd">        :param list can_filters:</span>
+<span class="sd">            See :meth:`can.BusABC.set_filters`.</span>
+
+<span class="sd">        Backend Configuration</span>
+
+<span class="sd">        :param int bitrate:</span>
+<span class="sd">            Bitrate of channel in bit/s</span>
+<span class="sd">        :param bool accept_virtual:</span>
+<span class="sd">            If virtual channels should be accepted.</span>
+<span class="sd">        :param int tseg1:</span>
+<span class="sd">            Time segment 1, that is, the number of quanta from (but not including)</span>
+<span class="sd">            the Sync Segment to the sampling point.</span>
+<span class="sd">            If this parameter is not given, the Kvaser driver will try to choose</span>
+<span class="sd">            all bit timing parameters from a set of defaults.</span>
+<span class="sd">        :param int tseg2:</span>
+<span class="sd">            Time segment 2, that is, the number of quanta from the sampling</span>
+<span class="sd">            point to the end of the bit.</span>
+<span class="sd">        :param int sjw:</span>
+<span class="sd">            The Synchronization Jump Width. Decides the maximum number of time quanta</span>
+<span class="sd">            that the controller can resynchronize every bit.</span>
+<span class="sd">        :param int no_samp:</span>
+<span class="sd">            Either 1 or 3. Some CAN controllers can also sample each bit three times.</span>
+<span class="sd">            In this case, the bit will be sampled three quanta in a row,</span>
+<span class="sd">            with the last sample being taken in the edge between TSEG1 and TSEG2.</span>
+<span class="sd">            Three samples should only be used for relatively slow baudrates.</span>
+
+<span class="sd">        :param bool driver_mode:</span>
+<span class="sd">            Silent or normal.</span>
+
+<span class="sd">        :param bool single_handle:</span>
+<span class="sd">            Use one Kvaser CANLIB bus handle for both reading and writing.</span>
+<span class="sd">            This can be set if reading and/or writing is done from one thread.</span>
+<span class="sd">        :param bool receive_own_messages:</span>
+<span class="sd">            If messages transmitted should also be received back.</span>
+<span class="sd">            Only works if single_handle is also False.</span>
+<span class="sd">            If you want to receive messages from other applications on the same</span>
+<span class="sd">            computer, set this to True or set single_handle to True.</span>
+<span class="sd">        :param bool fd:</span>
+<span class="sd">            If CAN-FD frames should be supported.</span>
+<span class="sd">        :param int data_bitrate:</span>
+<span class="sd">            Which bitrate to use for data phase in CAN FD.</span>
+<span class="sd">            Defaults to arbitration bitrate.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;CAN Filters: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">can_filters</span><span class="p">))</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Got configuration of: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">kwargs</span><span class="p">))</span>
+        <span class="n">bitrate</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;bitrate&#39;</span><span class="p">,</span> <span class="mi">500000</span><span class="p">)</span>
+        <span class="n">tseg1</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;tseg1&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">tseg2</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;tseg2&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">sjw</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;sjw&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">no_samp</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;no_samp&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">driver_mode</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;driver_mode&#39;</span><span class="p">,</span> <span class="n">DRIVER_MODE_NORMAL</span><span class="p">)</span>
+        <span class="n">single_handle</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;single_handle&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">receive_own_messages</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;receive_own_messages&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">accept_virtual</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;accept_virtual&#39;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="n">fd</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;fd&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">data_bitrate</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;data_bitrate&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">channel</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">channel</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;channel must be an integer&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">channel</span> <span class="o">=</span> <span class="n">channel</span>
+
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Initialising bus instance&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">single_handle</span> <span class="o">=</span> <span class="n">single_handle</span>
+
+        <span class="n">num_channels</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_int</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">canGetNumberOfChannels</span><span class="p">(</span><span class="n">ctypes</span><span class="o">.</span><span class="n">byref</span><span class="p">(</span><span class="n">num_channels</span><span class="p">))</span>
+        <span class="c1">#log.debug(&quot;Res: {}&quot;.format(res))</span>
+        <span class="n">num_channels</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">num_channels</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Found </span><span class="si">%d</span><span class="s1"> available channels&#39;</span> <span class="o">%</span> <span class="n">num_channels</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_channels</span><span class="p">):</span>
+            <span class="n">channel_info</span> <span class="o">=</span> <span class="n">get_channel_info</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%d</span><span class="s1">: </span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">channel_info</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">idx</span> <span class="o">==</span> <span class="n">channel</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">channel_info</span> <span class="o">=</span> <span class="n">channel_info</span>
+
+        <span class="n">flags</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">accept_virtual</span><span class="p">:</span>
+            <span class="n">flags</span> <span class="o">|=</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canOPEN_ACCEPT_VIRTUAL</span>
+        <span class="k">if</span> <span class="n">fd</span><span class="p">:</span>
+            <span class="n">flags</span> <span class="o">|=</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canOPEN_CAN_FD</span>
+
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Creating read handle to bus channel: </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">channel</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_read_handle</span> <span class="o">=</span> <span class="n">canOpenChannel</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">flags</span><span class="p">)</span>
+        <span class="n">canIoCtl</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_read_handle</span><span class="p">,</span>
+                 <span class="n">canstat</span><span class="o">.</span><span class="n">canIOCTL_SET_TIMER_SCALE</span><span class="p">,</span>
+                 <span class="n">ctypes</span><span class="o">.</span><span class="n">byref</span><span class="p">(</span><span class="n">ctypes</span><span class="o">.</span><span class="n">c_long</span><span class="p">(</span><span class="n">TIMESTAMP_RESOLUTION</span><span class="p">)),</span>
+                 <span class="mi">4</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="n">fd</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s1">&#39;tseg1&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">and</span> <span class="n">bitrate</span> <span class="ow">in</span> <span class="n">BITRATE_FD</span><span class="p">:</span>
+                <span class="c1"># Use predefined bitrate for arbitration</span>
+                <span class="n">bitrate</span> <span class="o">=</span> <span class="n">BITRATE_FD</span><span class="p">[</span><span class="n">bitrate</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">data_bitrate</span> <span class="ow">in</span> <span class="n">BITRATE_FD</span><span class="p">:</span>
+                <span class="c1"># Use predefined bitrate for data</span>
+                <span class="n">data_bitrate</span> <span class="o">=</span> <span class="n">BITRATE_FD</span><span class="p">[</span><span class="n">data_bitrate</span><span class="p">]</span>
+            <span class="k">elif</span> <span class="ow">not</span> <span class="n">data_bitrate</span><span class="p">:</span>
+                <span class="c1"># Use same bitrate for arbitration and data phase</span>
+                <span class="n">data_bitrate</span> <span class="o">=</span> <span class="n">bitrate</span>
+            <span class="n">canSetBusParamsFd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_read_handle</span><span class="p">,</span> <span class="n">data_bitrate</span><span class="p">,</span> <span class="n">tseg1</span><span class="p">,</span> <span class="n">tseg2</span><span class="p">,</span> <span class="n">sjw</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s1">&#39;tseg1&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">and</span> <span class="n">bitrate</span> <span class="ow">in</span> <span class="n">BITRATE_OBJS</span><span class="p">:</span>
+                <span class="n">bitrate</span> <span class="o">=</span> <span class="n">BITRATE_OBJS</span><span class="p">[</span><span class="n">bitrate</span><span class="p">]</span>
+        <span class="n">canSetBusParams</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_read_handle</span><span class="p">,</span> <span class="n">bitrate</span><span class="p">,</span> <span class="n">tseg1</span><span class="p">,</span> <span class="n">tseg2</span><span class="p">,</span> <span class="n">sjw</span><span class="p">,</span> <span class="n">no_samp</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># By default, use local echo if single handle is used (see #160)</span>
+        <span class="n">local_echo</span> <span class="o">=</span> <span class="n">single_handle</span> <span class="ow">or</span> <span class="n">receive_own_messages</span>
+        <span class="k">if</span> <span class="n">receive_own_messages</span> <span class="ow">and</span> <span class="n">single_handle</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;receive_own_messages only works if single_handle is False&quot;</span><span class="p">)</span>
+        <span class="n">canIoCtl</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_read_handle</span><span class="p">,</span>
+                 <span class="n">canstat</span><span class="o">.</span><span class="n">canIOCTL_SET_LOCAL_TXECHO</span><span class="p">,</span>
+                 <span class="n">ctypes</span><span class="o">.</span><span class="n">byref</span><span class="p">(</span><span class="n">ctypes</span><span class="o">.</span><span class="n">c_byte</span><span class="p">(</span><span class="n">local_echo</span><span class="p">)),</span>
+                 <span class="mi">1</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">single_handle</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;We don&#39;t require separate handles to the bus&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_write_handle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_read_handle</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Creating separate handle for TX on channel: </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">channel</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_write_handle</span> <span class="o">=</span> <span class="n">canOpenChannel</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">flags</span><span class="p">)</span>
+            <span class="n">canBusOn</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_read_handle</span><span class="p">)</span>
+
+        <span class="n">can_driver_mode</span> <span class="o">=</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canDRIVER_SILENT</span> <span class="k">if</span> <span class="n">driver_mode</span> <span class="o">==</span> <span class="n">DRIVER_MODE_SILENT</span> <span class="k">else</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canDRIVER_NORMAL</span>
+        <span class="n">canSetBusOutputControl</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_write_handle</span><span class="p">,</span> <span class="n">can_driver_mode</span><span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Going bus on TX handle&#39;</span><span class="p">)</span>
+        <span class="n">canBusOn</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_write_handle</span><span class="p">)</span>
+
+        <span class="n">timer</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">kvReadTimer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_read_handle</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">byref</span><span class="p">(</span><span class="n">timer</span><span class="p">))</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="c1"># timer is usually close to 0</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_timestamp_offset</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="p">(</span><span class="n">timer</span><span class="o">.</span><span class="n">value</span> <span class="o">*</span> <span class="n">TIMESTAMP_FACTOR</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_is_filtered</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">KvaserBus</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">channel</span><span class="o">=</span><span class="n">channel</span><span class="p">,</span> <span class="n">can_filters</span><span class="o">=</span><span class="n">can_filters</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_apply_filters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filters</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">filters</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">filters</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">can_id</span> <span class="o">=</span> <span class="n">filters</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;can_id&#39;</span><span class="p">]</span>
+            <span class="n">can_mask</span> <span class="o">=</span> <span class="n">filters</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;can_mask&#39;</span><span class="p">]</span>
+            <span class="n">extended</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">filters</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;extended&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="mi">0</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">handle</span> <span class="ow">in</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_read_handle</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_write_handle</span><span class="p">):</span>
+                    <span class="n">canSetAcceptanceFilter</span><span class="p">(</span><span class="n">handle</span><span class="p">,</span> <span class="n">can_id</span><span class="p">,</span> <span class="n">can_mask</span><span class="p">,</span> <span class="n">extended</span><span class="p">)</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">NotImplementedError</span><span class="p">,</span> <span class="n">CANLIBError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_is_filtered</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;Filtering is not supported - </span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_is_filtered</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;canlib is filtering on ID 0x</span><span class="si">%X</span><span class="s1">, mask 0x</span><span class="si">%X</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">can_id</span><span class="p">,</span> <span class="n">can_mask</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_is_filtered</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Hardware filtering has been disabled&#39;</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">handle</span> <span class="ow">in</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_read_handle</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_write_handle</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">extended</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+                        <span class="n">canSetAcceptanceFilter</span><span class="p">(</span><span class="n">handle</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">extended</span><span class="p">)</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">NotImplementedError</span><span class="p">,</span> <span class="n">CANLIBError</span><span class="p">):</span>
+                <span class="c1"># TODO add logging?</span>
+                <span class="k">pass</span>
+
+<div class="viewcode-block" id="KvaserBus.flush_tx_buffer"><a class="viewcode-back" href="../../../../interfaces/kvaser.html#can.interfaces.kvaser.canlib.KvaserBus.flush_tx_buffer">[docs]</a>    <span class="k">def</span> <span class="nf">flush_tx_buffer</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Wipeout the transmit buffer on the Kvaser.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">canIoCtl</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_write_handle</span><span class="p">,</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canIOCTL_FLUSH_TX_BUFFER</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_recv_internal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Read a message from kvaser device and return whether filtering has taken place.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">arb_id</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_long</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">create_string_buffer</span><span class="p">(</span><span class="mi">64</span><span class="p">)</span>
+        <span class="n">dlc</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">flags</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ulong</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Set infinite timeout</span>
+            <span class="c1"># http://www.kvaser.com/canlib-webhelp/group___c_a_n.html#ga2edd785a87cc16b49ece8969cad71e5b</span>
+            <span class="n">timeout</span> <span class="o">=</span> <span class="mh">0xFFFFFFFF</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">timeout</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">timeout</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">)</span>
+
+        <span class="c1">#log.log(9, &#39;Reading for %d ms on handle: %s&#39; % (timeout, self._read_handle))</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="n">canReadWait</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_read_handle</span><span class="p">,</span>
+            <span class="n">ctypes</span><span class="o">.</span><span class="n">byref</span><span class="p">(</span><span class="n">arb_id</span><span class="p">),</span>
+            <span class="n">ctypes</span><span class="o">.</span><span class="n">byref</span><span class="p">(</span><span class="n">data</span><span class="p">),</span>
+            <span class="n">ctypes</span><span class="o">.</span><span class="n">byref</span><span class="p">(</span><span class="n">dlc</span><span class="p">),</span>
+            <span class="n">ctypes</span><span class="o">.</span><span class="n">byref</span><span class="p">(</span><span class="n">flags</span><span class="p">),</span>
+            <span class="n">ctypes</span><span class="o">.</span><span class="n">byref</span><span class="p">(</span><span class="n">timestamp</span><span class="p">),</span>
+            <span class="n">timeout</span>  <span class="c1"># This is an X ms blocking read</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">status</span> <span class="o">==</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canOK</span><span class="p">:</span>
+            <span class="c1">#log.debug(&#39;read complete -&gt; status OK&#39;)</span>
+            <span class="n">data_array</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">raw</span>
+            <span class="n">flags</span> <span class="o">=</span> <span class="n">flags</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">is_extended</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">flags</span> <span class="o">&amp;</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canMSG_EXT</span><span class="p">)</span>
+            <span class="n">is_remote_frame</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">flags</span> <span class="o">&amp;</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canMSG_RTR</span><span class="p">)</span>
+            <span class="n">is_error_frame</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">flags</span> <span class="o">&amp;</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canMSG_ERROR_FRAME</span><span class="p">)</span>
+            <span class="n">is_fd</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">flags</span> <span class="o">&amp;</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canFDMSG_FDF</span><span class="p">)</span>
+            <span class="n">bitrate_switch</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">flags</span> <span class="o">&amp;</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canFDMSG_BRS</span><span class="p">)</span>
+            <span class="n">error_state_indicator</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">flags</span> <span class="o">&amp;</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canFDMSG_ESI</span><span class="p">)</span>
+            <span class="n">msg_timestamp</span> <span class="o">=</span> <span class="n">timestamp</span><span class="o">.</span><span class="n">value</span> <span class="o">*</span> <span class="n">TIMESTAMP_FACTOR</span>
+            <span class="n">rx_msg</span> <span class="o">=</span> <span class="n">Message</span><span class="p">(</span><span class="n">arbitration_id</span><span class="o">=</span><span class="n">arb_id</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+                             <span class="n">data</span><span class="o">=</span><span class="n">data_array</span><span class="p">[:</span><span class="n">dlc</span><span class="o">.</span><span class="n">value</span><span class="p">],</span>
+                             <span class="n">dlc</span><span class="o">=</span><span class="n">dlc</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+                             <span class="n">is_extended_id</span><span class="o">=</span><span class="n">is_extended</span><span class="p">,</span>
+                             <span class="n">is_error_frame</span><span class="o">=</span><span class="n">is_error_frame</span><span class="p">,</span>
+                             <span class="n">is_remote_frame</span><span class="o">=</span><span class="n">is_remote_frame</span><span class="p">,</span>
+                             <span class="n">is_fd</span><span class="o">=</span><span class="n">is_fd</span><span class="p">,</span>
+                             <span class="n">bitrate_switch</span><span class="o">=</span><span class="n">bitrate_switch</span><span class="p">,</span>
+                             <span class="n">error_state_indicator</span><span class="o">=</span><span class="n">error_state_indicator</span><span class="p">,</span>
+                             <span class="n">channel</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">,</span>
+                             <span class="n">timestamp</span><span class="o">=</span><span class="n">msg_timestamp</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_timestamp_offset</span><span class="p">)</span>
+            <span class="c1">#log.debug(&#39;Got message: %s&#39; % rx_msg)</span>
+            <span class="k">return</span> <span class="n">rx_msg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_filtered</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1">#log.debug(&#39;read complete -&gt; status not okay&#39;)</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_filtered</span>
+
+<div class="viewcode-block" id="KvaserBus.send"><a class="viewcode-back" href="../../../../interfaces/kvaser.html#can.interfaces.kvaser.canlib.KvaserBus.send">[docs]</a>    <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="c1">#log.debug(&quot;Writing a message: {}&quot;.format(msg))</span>
+        <span class="n">flags</span> <span class="o">=</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canMSG_EXT</span> <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_extended_id</span> <span class="k">else</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canMSG_STD</span>
+        <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_remote_frame</span><span class="p">:</span>
+            <span class="n">flags</span> <span class="o">|=</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canMSG_RTR</span>
+        <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_error_frame</span><span class="p">:</span>
+            <span class="n">flags</span> <span class="o">|=</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canMSG_ERROR_FRAME</span>
+        <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_fd</span><span class="p">:</span>
+            <span class="n">flags</span> <span class="o">|=</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canFDMSG_FDF</span>
+        <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">bitrate_switch</span><span class="p">:</span>
+            <span class="n">flags</span> <span class="o">|=</span> <span class="n">canstat</span><span class="o">.</span><span class="n">canFDMSG_BRS</span>
+        <span class="n">ArrayConstructor</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_byte</span> <span class="o">*</span> <span class="n">msg</span><span class="o">.</span><span class="n">dlc</span>
+        <span class="n">buf</span> <span class="o">=</span> <span class="n">ArrayConstructor</span><span class="p">(</span><span class="o">*</span><span class="n">msg</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">canWrite</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_write_handle</span><span class="p">,</span>
+                 <span class="n">msg</span><span class="o">.</span><span class="n">arbitration_id</span><span class="p">,</span>
+                 <span class="n">ctypes</span><span class="o">.</span><span class="n">byref</span><span class="p">(</span><span class="n">buf</span><span class="p">),</span>
+                 <span class="n">msg</span><span class="o">.</span><span class="n">dlc</span><span class="p">,</span>
+                 <span class="n">flags</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">timeout</span><span class="p">:</span>
+            <span class="n">canWriteSync</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_write_handle</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">timeout</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="KvaserBus.flash"><a class="viewcode-back" href="../../../../interfaces/kvaser.html#can.interfaces.kvaser.canlib.KvaserBus.flash">[docs]</a>    <span class="k">def</span> <span class="nf">flash</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flash</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Turn on or off flashing of the device&#39;s LED for physical</span>
+<span class="sd">        identification purposes.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">flash</span><span class="p">:</span>
+            <span class="n">action</span> <span class="o">=</span> <span class="n">canstat</span><span class="o">.</span><span class="n">kvLED_ACTION_ALL_LEDS_ON</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">action</span> <span class="o">=</span> <span class="n">canstat</span><span class="o">.</span><span class="n">kvLED_ACTION_ALL_LEDS_OFF</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">kvFlashLeds</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_read_handle</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="mi">30000</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="n">CANLIBError</span><span class="p">,</span> <span class="ne">NotImplementedError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;Could not flash LEDs (</span><span class="si">%s</span><span class="s1">)&#39;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="KvaserBus.shutdown"><a class="viewcode-back" href="../../../../interfaces/kvaser.html#can.interfaces.kvaser.canlib.KvaserBus.shutdown">[docs]</a>    <span class="k">def</span> <span class="nf">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Wait for transmit queue to be cleared</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">canWriteSync</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_write_handle</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">CANLIBError</span><span class="p">:</span>
+            <span class="c1"># Not a huge deal and it seems that we get timeout if no messages</span>
+            <span class="c1"># exists in the buffer at all</span>
+            <span class="k">pass</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">single_handle</span><span class="p">:</span>
+            <span class="n">canBusOff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_read_handle</span><span class="p">)</span>
+            <span class="n">canClose</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_read_handle</span><span class="p">)</span>
+        <span class="n">canBusOff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_write_handle</span><span class="p">)</span>
+        <span class="n">canClose</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_write_handle</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="KvaserBus.get_stats"><a class="viewcode-back" href="../../../../interfaces/kvaser.html#can.interfaces.kvaser.canlib.KvaserBus.get_stats">[docs]</a>    <span class="k">def</span> <span class="nf">get_stats</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieves the bus statistics.</span>
+
+<span class="sd">        Use like so:</span>
+
+<span class="sd">        &gt;&gt;&gt; stats = bus.get_stats()</span>
+<span class="sd">        &gt;&gt;&gt; print(stats)</span>
+<span class="sd">        std_data: 0, std_remote: 0, ext_data: 0, ext_remote: 0, err_frame: 0, bus_load: 0.0%, overruns: 0</span>
+
+<span class="sd">        :returns: bus statistics.</span>
+<span class="sd">        :rtype: can.interfaces.kvaser.structures.BusStatistics</span>
+<span class="sd">         &quot;&quot;&quot;</span>
+        <span class="n">canRequestBusStatistics</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_write_handle</span><span class="p">)</span>
+        <span class="n">stats</span> <span class="o">=</span> <span class="n">structures</span><span class="o">.</span><span class="n">BusStatistics</span><span class="p">()</span>
+        <span class="n">canGetBusStatistics</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_write_handle</span><span class="p">,</span>
+                            <span class="n">ctypes</span><span class="o">.</span><span class="n">pointer</span><span class="p">(</span><span class="n">stats</span><span class="p">),</span>
+                            <span class="n">ctypes</span><span class="o">.</span><span class="n">sizeof</span><span class="p">(</span><span class="n">stats</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">stats</span></div>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_detect_available_configs</span><span class="p">():</span>
+        <span class="n">num_channels</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_int</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">canGetNumberOfChannels</span><span class="p">(</span><span class="n">ctypes</span><span class="o">.</span><span class="n">byref</span><span class="p">(</span><span class="n">num_channels</span><span class="p">))</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">pass</span>
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="p">{</span><span class="s1">&#39;interface&#39;</span><span class="p">:</span> <span class="s1">&#39;kvaser&#39;</span><span class="p">,</span> <span class="s1">&#39;channel&#39;</span><span class="p">:</span> <span class="n">channel</span><span class="p">}</span>
+            <span class="k">for</span> <span class="n">channel</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_channels</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="p">]</span></div>
+
+
+<span class="k">def</span> <span class="nf">get_channel_info</span><span class="p">(</span><span class="n">channel</span><span class="p">):</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">create_string_buffer</span><span class="p">(</span><span class="mi">80</span><span class="p">)</span>
+    <span class="n">serial</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint64</span><span class="p">()</span>
+    <span class="n">number</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">()</span>
+
+    <span class="n">canGetChannelData</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span>
+                      <span class="n">canstat</span><span class="o">.</span><span class="n">canCHANNELDATA_DEVDESCR_ASCII</span><span class="p">,</span>
+                      <span class="n">ctypes</span><span class="o">.</span><span class="n">byref</span><span class="p">(</span><span class="n">name</span><span class="p">),</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">sizeof</span><span class="p">(</span><span class="n">name</span><span class="p">))</span>
+    <span class="n">canGetChannelData</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span>
+                      <span class="n">canstat</span><span class="o">.</span><span class="n">canCHANNELDATA_CARD_SERIAL_NO</span><span class="p">,</span>
+                      <span class="n">ctypes</span><span class="o">.</span><span class="n">byref</span><span class="p">(</span><span class="n">serial</span><span class="p">),</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">sizeof</span><span class="p">(</span><span class="n">serial</span><span class="p">))</span>
+    <span class="n">canGetChannelData</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span>
+                      <span class="n">canstat</span><span class="o">.</span><span class="n">canCHANNELDATA_CHAN_NO_ON_CARD</span><span class="p">,</span>
+                      <span class="n">ctypes</span><span class="o">.</span><span class="n">byref</span><span class="p">(</span><span class="n">number</span><span class="p">),</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">sizeof</span><span class="p">(</span><span class="n">number</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">, S/N </span><span class="si">%d</span><span class="s1"> (#</span><span class="si">%d</span><span class="s1">)&#39;</span> <span class="o">%</span> <span class="p">(</span>
+        <span class="n">name</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;ascii&quot;</span><span class="p">),</span> <span class="n">serial</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">number</span><span class="o">.</span><span class="n">value</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+
+
+<span class="n">init_kvaser_library</span><span class="p">()</span>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../../can.html" >can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.kvaser.canlib</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

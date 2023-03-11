@@ -1,0 +1,405 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>can.interfaces.nican &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css" />
+    
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../can.html" accesskey="U">can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.nican</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for can.interfaces.nican</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">NI-CAN interface module.</span>
+
+<span class="sd">Implementation references:</span>
+<span class="sd">* http://www.ni.com/pdf/manuals/370289c.pdf</span>
+<span class="sd">* https://github.com/buendiya/NicanPython</span>
+
+<span class="sd">TODO: We could implement this interface such that setting other filters</span>
+<span class="sd">      could work when the initial filters were set to zero using the</span>
+<span class="sd">      software fallback. Or could the software filters even be changed</span>
+<span class="sd">      after the connection was opened? We need to document that bahaviour!</span>
+<span class="sd">      See also the IXXAT interface.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">ctypes</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+
+<span class="kn">from</span> <span class="nn">can</span> <span class="kn">import</span> <span class="n">CanError</span><span class="p">,</span> <span class="n">BusABC</span><span class="p">,</span> <span class="n">Message</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="n">NC_SUCCESS</span> <span class="o">=</span>            <span class="mi">0</span>
+<span class="n">NC_ERR_TIMEOUT</span> <span class="o">=</span>        <span class="mi">1</span>
+<span class="n">TIMEOUT_ERROR_CODE</span> <span class="o">=</span>    <span class="o">-</span><span class="mi">1074388991</span>
+
+<span class="n">NC_DURATION_INFINITE</span> <span class="o">=</span>  <span class="mh">0xFFFFFFFF</span>
+
+<span class="n">NC_OP_START</span> <span class="o">=</span>           <span class="mh">0x80000001</span>
+<span class="n">NC_OP_STOP</span>  <span class="o">=</span>           <span class="mh">0x80000002</span>
+<span class="n">NC_OP_RESET</span> <span class="o">=</span>           <span class="mh">0x80000003</span>
+
+<span class="n">NC_FRMTYPE_REMOTE</span> <span class="o">=</span>     <span class="mi">1</span>
+<span class="n">NC_FRMTYPE_COMM_ERR</span> <span class="o">=</span>   <span class="mi">2</span>
+
+<span class="n">NC_ST_READ_AVAIL</span> <span class="o">=</span>      <span class="mh">0x00000001</span>
+<span class="n">NC_ST_WRITE_SUCCESS</span> <span class="o">=</span>   <span class="mh">0x00000002</span>
+<span class="n">NC_ST_ERROR</span> <span class="o">=</span>           <span class="mh">0x00000010</span>
+<span class="n">NC_ST_WARNING</span> <span class="o">=</span>         <span class="mh">0x00000020</span>
+
+<span class="n">NC_ATTR_BAUD_RATE</span> <span class="o">=</span>     <span class="mh">0x80000007</span>
+<span class="n">NC_ATTR_START_ON_OPEN</span> <span class="o">=</span> <span class="mh">0x80000006</span>
+<span class="n">NC_ATTR_READ_Q_LEN</span> <span class="o">=</span>    <span class="mh">0x80000013</span>
+<span class="n">NC_ATTR_WRITE_Q_LEN</span> <span class="o">=</span>   <span class="mh">0x80000014</span>
+<span class="n">NC_ATTR_CAN_COMP_STD</span> <span class="o">=</span>  <span class="mh">0x80010001</span>
+<span class="n">NC_ATTR_CAN_MASK_STD</span> <span class="o">=</span>  <span class="mh">0x80010002</span>
+<span class="n">NC_ATTR_CAN_COMP_XTD</span> <span class="o">=</span>  <span class="mh">0x80010003</span>
+<span class="n">NC_ATTR_CAN_MASK_XTD</span> <span class="o">=</span>  <span class="mh">0x80010004</span>
+<span class="n">NC_ATTR_LOG_COMM_ERRS</span> <span class="o">=</span> <span class="mh">0x8001000A</span>
+
+<span class="n">NC_FL_CAN_ARBID_XTD</span> <span class="o">=</span>   <span class="mh">0x20000000</span>
+
+<span class="n">CanData</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ubyte</span> <span class="o">*</span> <span class="mi">8</span>
+
+
+<span class="k">class</span> <span class="nc">RxMessageStruct</span><span class="p">(</span><span class="n">ctypes</span><span class="o">.</span><span class="n">Structure</span><span class="p">):</span>
+    <span class="n">_pack_</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">_fields_</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">(</span><span class="s2">&quot;timestamp&quot;</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ulonglong</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;arb_id&quot;</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ulong</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;frame_type&quot;</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ubyte</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;dlc&quot;</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ubyte</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="n">CanData</span><span class="p">),</span>
+    <span class="p">]</span>
+
+<span class="k">class</span> <span class="nc">TxMessageStruct</span><span class="p">(</span><span class="n">ctypes</span><span class="o">.</span><span class="n">Structure</span><span class="p">):</span>
+    <span class="n">_fields_</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">(</span><span class="s2">&quot;arb_id&quot;</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ulong</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;is_remote&quot;</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ubyte</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;dlc&quot;</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ubyte</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="n">CanData</span><span class="p">),</span>
+    <span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">check_status</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">function</span><span class="p">,</span> <span class="n">arguments</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">result</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">get_error_message</span><span class="p">(</span><span class="n">result</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">result</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">NicanError</span><span class="p">(</span><span class="n">function</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">arguments</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">result</span>
+
+
+<span class="k">def</span> <span class="nf">get_error_message</span><span class="p">(</span><span class="n">status_code</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert status code to descriptive string.&quot;&quot;&quot;</span>
+    <span class="n">errmsg</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">create_string_buffer</span><span class="p">(</span><span class="mi">1024</span><span class="p">)</span>
+    <span class="n">nican</span><span class="o">.</span><span class="n">ncStatusToString</span><span class="p">(</span><span class="n">status_code</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">errmsg</span><span class="p">),</span> <span class="n">errmsg</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">errmsg</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;ascii&quot;</span><span class="p">)</span>
+
+
+<span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s2">&quot;win32&quot;</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">nican</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">windll</span><span class="o">.</span><span class="n">LoadLibrary</span><span class="p">(</span><span class="s2">&quot;nican&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">nican</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Failed to load NI-CAN driver: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">nican</span><span class="o">.</span><span class="n">ncConfig</span><span class="o">.</span><span class="n">argtypes</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">ctypes</span><span class="o">.</span><span class="n">c_char_p</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ulong</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_void_p</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_void_p</span><span class="p">]</span>
+        <span class="n">nican</span><span class="o">.</span><span class="n">ncConfig</span><span class="o">.</span><span class="n">errcheck</span> <span class="o">=</span> <span class="n">check_status</span>
+        <span class="n">nican</span><span class="o">.</span><span class="n">ncOpenObject</span><span class="o">.</span><span class="n">argtypes</span> <span class="o">=</span> <span class="p">[</span><span class="n">ctypes</span><span class="o">.</span><span class="n">c_char_p</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_void_p</span><span class="p">]</span>
+        <span class="n">nican</span><span class="o">.</span><span class="n">ncOpenObject</span><span class="o">.</span><span class="n">errcheck</span> <span class="o">=</span> <span class="n">check_status</span>
+        <span class="n">nican</span><span class="o">.</span><span class="n">ncCloseObject</span><span class="o">.</span><span class="n">errcheck</span> <span class="o">=</span> <span class="n">check_status</span>
+        <span class="n">nican</span><span class="o">.</span><span class="n">ncAction</span><span class="o">.</span><span class="n">argtypes</span> <span class="o">=</span> <span class="p">[</span><span class="n">ctypes</span><span class="o">.</span><span class="n">c_ulong</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ulong</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ulong</span><span class="p">]</span>
+        <span class="n">nican</span><span class="o">.</span><span class="n">ncAction</span><span class="o">.</span><span class="n">errcheck</span> <span class="o">=</span> <span class="n">check_status</span>
+        <span class="n">nican</span><span class="o">.</span><span class="n">ncRead</span><span class="o">.</span><span class="n">errcheck</span> <span class="o">=</span> <span class="n">check_status</span>
+        <span class="n">nican</span><span class="o">.</span><span class="n">ncWrite</span><span class="o">.</span><span class="n">errcheck</span> <span class="o">=</span> <span class="n">check_status</span>
+        <span class="n">nican</span><span class="o">.</span><span class="n">ncWaitForState</span><span class="o">.</span><span class="n">argtypes</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ulong</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ulong</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ulong</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_void_p</span><span class="p">]</span>
+        <span class="n">nican</span><span class="o">.</span><span class="n">ncWaitForState</span><span class="o">.</span><span class="n">errcheck</span> <span class="o">=</span> <span class="n">check_status</span>
+        <span class="n">nican</span><span class="o">.</span><span class="n">ncStatusToString</span><span class="o">.</span><span class="n">argtypes</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">ctypes</span><span class="o">.</span><span class="n">c_int</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_char_p</span><span class="p">]</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">nican</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;NI-CAN interface is only available on Windows systems&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="NicanBus"><a class="viewcode-back" href="../../../interfaces/nican.html#can.interfaces.nican.NicanBus">[docs]</a><span class="k">class</span> <span class="nc">NicanBus</span><span class="p">(</span><span class="n">BusABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The CAN Bus implemented for the NI-CAN interface.</span>
+
+<span class="sd">    .. warning::</span>
+
+<span class="sd">        This interface does implement efficient filtering of messages, but</span>
+<span class="sd">        the filters have to be set in :meth:`~can.interfaces.nican.NicanBus.__init__`</span>
+<span class="sd">        using the ``can_filters`` parameter. Using :meth:`~can.interfaces.nican.NicanBus.set_filters`</span>
+<span class="sd">        does not work.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">can_filters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bitrate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">log_errors</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param str channel:</span>
+<span class="sd">            Name of the object to open (e.g. &#39;CAN0&#39;)</span>
+
+<span class="sd">        :param int bitrate:</span>
+<span class="sd">            Bitrate in bits/s</span>
+
+<span class="sd">        :param list can_filters:</span>
+<span class="sd">            See :meth:`can.BusABC.set_filters`.</span>
+
+<span class="sd">        :param bool log_errors:</span>
+<span class="sd">            If True, communication errors will appear as CAN messages with</span>
+<span class="sd">            ``is_error_frame`` set to True and ``arbitration_id`` will identify</span>
+<span class="sd">            the error (default True)</span>
+
+<span class="sd">        :raises can.interfaces.nican.NicanError:</span>
+<span class="sd">            If starting communication fails</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">nican</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;The NI-CAN driver could not be loaded. &quot;</span>
+                              <span class="s2">&quot;Check that you are using 32-bit Python on Windows.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">channel</span> <span class="o">=</span> <span class="n">channel</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">channel_info</span> <span class="o">=</span> <span class="s2">&quot;NI-CAN: &quot;</span> <span class="o">+</span> <span class="n">channel</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+            <span class="n">channel</span> <span class="o">=</span> <span class="n">channel</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
+
+        <span class="n">config</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="n">NC_ATTR_START_ON_OPEN</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
+            <span class="p">(</span><span class="n">NC_ATTR_LOG_COMM_ERRS</span><span class="p">,</span> <span class="n">log_errors</span><span class="p">)</span>
+        <span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">can_filters</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Filtering has been disabled&quot;</span><span class="p">)</span>
+            <span class="n">config</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span>
+                <span class="p">(</span><span class="n">NC_ATTR_CAN_COMP_STD</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+                <span class="p">(</span><span class="n">NC_ATTR_CAN_MASK_STD</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+                <span class="p">(</span><span class="n">NC_ATTR_CAN_COMP_XTD</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+                <span class="p">(</span><span class="n">NC_ATTR_CAN_MASK_XTD</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">can_filter</span> <span class="ow">in</span> <span class="n">can_filters</span><span class="p">:</span>
+                <span class="n">can_id</span> <span class="o">=</span> <span class="n">can_filter</span><span class="p">[</span><span class="s2">&quot;can_id&quot;</span><span class="p">]</span>
+                <span class="n">can_mask</span> <span class="o">=</span> <span class="n">can_filter</span><span class="p">[</span><span class="s2">&quot;can_mask&quot;</span><span class="p">]</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Filtering on ID 0x</span><span class="si">%X</span><span class="s2">, mask 0x</span><span class="si">%X</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">can_id</span><span class="p">,</span> <span class="n">can_mask</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">can_filter</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;extended&quot;</span><span class="p">):</span>
+                    <span class="n">config</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span>
+                        <span class="p">(</span><span class="n">NC_ATTR_CAN_COMP_XTD</span><span class="p">,</span> <span class="n">can_id</span> <span class="o">|</span> <span class="n">NC_FL_CAN_ARBID_XTD</span><span class="p">),</span>
+                        <span class="p">(</span><span class="n">NC_ATTR_CAN_MASK_XTD</span><span class="p">,</span> <span class="n">can_mask</span><span class="p">)</span>
+                    <span class="p">])</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">config</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span>
+                        <span class="p">(</span><span class="n">NC_ATTR_CAN_COMP_STD</span><span class="p">,</span> <span class="n">can_id</span><span class="p">),</span>
+                        <span class="p">(</span><span class="n">NC_ATTR_CAN_MASK_STD</span><span class="p">,</span> <span class="n">can_mask</span><span class="p">),</span>
+                    <span class="p">])</span>
+
+        <span class="k">if</span> <span class="n">bitrate</span><span class="p">:</span>
+            <span class="n">config</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">NC_ATTR_BAUD_RATE</span><span class="p">,</span> <span class="n">bitrate</span><span class="p">))</span>
+
+        <span class="n">AttrList</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ulong</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+        <span class="n">attr_id_list</span> <span class="o">=</span> <span class="n">AttrList</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">config</span><span class="p">))</span>
+        <span class="n">attr_value_list</span> <span class="o">=</span> <span class="n">AttrList</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">config</span><span class="p">))</span>
+        <span class="n">nican</span><span class="o">.</span><span class="n">ncConfig</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span>
+                       <span class="nb">len</span><span class="p">(</span><span class="n">config</span><span class="p">),</span>
+                       <span class="n">ctypes</span><span class="o">.</span><span class="n">byref</span><span class="p">(</span><span class="n">attr_id_list</span><span class="p">),</span>
+                       <span class="n">ctypes</span><span class="o">.</span><span class="n">byref</span><span class="p">(</span><span class="n">attr_value_list</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">handle</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ulong</span><span class="p">()</span>
+        <span class="n">nican</span><span class="o">.</span><span class="n">ncOpenObject</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">byref</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">handle</span><span class="p">))</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">NicanBus</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">channel</span><span class="o">=</span><span class="n">channel</span><span class="p">,</span>
+            <span class="n">can_filters</span><span class="o">=</span><span class="n">can_filters</span><span class="p">,</span> <span class="n">bitrate</span><span class="o">=</span><span class="n">bitrate</span><span class="p">,</span>
+            <span class="n">log_errors</span><span class="o">=</span><span class="n">log_errors</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_recv_internal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Read a message from a NI-CAN bus.</span>
+
+<span class="sd">        :param float timeout:</span>
+<span class="sd">            Max time to wait in seconds or None if infinite</span>
+
+<span class="sd">        :raises can.interfaces.nican.NicanError:</span>
+<span class="sd">            If reception fails</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">timeout</span> <span class="o">=</span> <span class="n">NC_DURATION_INFINITE</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">timeout</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">timeout</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">)</span>
+
+        <span class="n">state</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ulong</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">nican</span><span class="o">.</span><span class="n">ncWaitForState</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">handle</span><span class="p">,</span> <span class="n">NC_ST_READ_AVAIL</span><span class="p">,</span> <span class="n">timeout</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">byref</span><span class="p">(</span><span class="n">state</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">NicanError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">error_code</span> <span class="o">==</span> <span class="n">TIMEOUT_ERROR_CODE</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">True</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span>
+
+        <span class="n">raw_msg</span> <span class="o">=</span> <span class="n">RxMessageStruct</span><span class="p">()</span>
+        <span class="n">nican</span><span class="o">.</span><span class="n">ncRead</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">handle</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">sizeof</span><span class="p">(</span><span class="n">raw_msg</span><span class="p">),</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">byref</span><span class="p">(</span><span class="n">raw_msg</span><span class="p">))</span>
+        <span class="c1"># http://stackoverflow.com/questions/6161776/convert-windows-filetime-to-second-in-unix-linux</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="n">raw_msg</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">/</span> <span class="mf">10000000.0</span> <span class="o">-</span> <span class="mi">11644473600</span>
+        <span class="n">is_remote_frame</span> <span class="o">=</span> <span class="n">raw_msg</span><span class="o">.</span><span class="n">frame_type</span> <span class="o">==</span> <span class="n">NC_FRMTYPE_REMOTE</span>
+        <span class="n">is_error_frame</span> <span class="o">=</span> <span class="n">raw_msg</span><span class="o">.</span><span class="n">frame_type</span> <span class="o">==</span> <span class="n">NC_FRMTYPE_COMM_ERR</span>
+        <span class="n">is_extended</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">raw_msg</span><span class="o">.</span><span class="n">arb_id</span> <span class="o">&amp;</span> <span class="n">NC_FL_CAN_ARBID_XTD</span><span class="p">)</span>
+        <span class="n">arb_id</span> <span class="o">=</span> <span class="n">raw_msg</span><span class="o">.</span><span class="n">arb_id</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_error_frame</span><span class="p">:</span>
+            <span class="n">arb_id</span> <span class="o">&amp;=</span> <span class="mh">0x1FFFFFFF</span>
+        <span class="n">dlc</span> <span class="o">=</span> <span class="n">raw_msg</span><span class="o">.</span><span class="n">dlc</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="n">Message</span><span class="p">(</span><span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span><span class="p">,</span>
+                      <span class="n">channel</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">,</span>
+                      <span class="n">is_remote_frame</span><span class="o">=</span><span class="n">is_remote_frame</span><span class="p">,</span>
+                      <span class="n">is_error_frame</span><span class="o">=</span><span class="n">is_error_frame</span><span class="p">,</span>
+                      <span class="n">is_extended_id</span><span class="o">=</span><span class="n">is_extended</span><span class="p">,</span>
+                      <span class="n">arbitration_id</span><span class="o">=</span><span class="n">arb_id</span><span class="p">,</span>
+                      <span class="n">dlc</span><span class="o">=</span><span class="n">dlc</span><span class="p">,</span>
+                      <span class="n">data</span><span class="o">=</span><span class="n">raw_msg</span><span class="o">.</span><span class="n">data</span><span class="p">[:</span><span class="n">dlc</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">msg</span><span class="p">,</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Send a message to NI-CAN.</span>
+
+<span class="sd">        :param can.Message msg:</span>
+<span class="sd">            Message to send</span>
+
+<span class="sd">        :raises can.interfaces.nican.NicanError:</span>
+<span class="sd">            If writing to transmit buffer fails.</span>
+<span class="sd">            It does not wait for message to be ACKed currently.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">arb_id</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">arbitration_id</span>
+        <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_extended_id</span><span class="p">:</span>
+            <span class="n">arb_id</span> <span class="o">|=</span> <span class="n">NC_FL_CAN_ARBID_XTD</span>
+        <span class="n">raw_msg</span> <span class="o">=</span> <span class="n">TxMessageStruct</span><span class="p">(</span><span class="n">arb_id</span><span class="p">,</span>
+                                  <span class="nb">bool</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">is_remote_frame</span><span class="p">),</span>
+                                  <span class="n">msg</span><span class="o">.</span><span class="n">dlc</span><span class="p">,</span>
+                                  <span class="n">CanData</span><span class="p">(</span><span class="o">*</span><span class="n">msg</span><span class="o">.</span><span class="n">data</span><span class="p">))</span>
+        <span class="n">nican</span><span class="o">.</span><span class="n">ncWrite</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">handle</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">sizeof</span><span class="p">(</span><span class="n">raw_msg</span><span class="p">),</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">byref</span><span class="p">(</span><span class="n">raw_msg</span><span class="p">))</span>
+
+        <span class="c1"># TODO:</span>
+        <span class="c1"># ncWaitForState can not be called here if the recv() method is called</span>
+        <span class="c1"># from a different thread, which is a very common use case.</span>
+        <span class="c1"># Maybe it is possible to use ncCreateNotification instead but seems a</span>
+        <span class="c1"># bit overkill at the moment.</span>
+        <span class="c1">#state = ctypes.c_ulong()</span>
+        <span class="c1">#nican.ncWaitForState(</span>
+        <span class="c1">#    self.handle, NC_ST_WRITE_SUCCESS, int(timeout * 1000), ctypes.byref(state))</span>
+
+    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Resets network interface. Stops network interface, then resets the CAN</span>
+<span class="sd">        chip to clear the CAN error counters (clear error passive state).</span>
+<span class="sd">        Resetting includes clearing all entries from read and write queues.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">nican</span><span class="o">.</span><span class="n">ncAction</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">handle</span><span class="p">,</span> <span class="n">NC_OP_RESET</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Close object.&quot;&quot;&quot;</span>
+        <span class="n">nican</span><span class="o">.</span><span class="n">ncCloseObject</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">handle</span><span class="p">)</span>
+
+    <span class="n">__set_filters_has_been_called</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">def</span> <span class="nf">set_filters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">can_filers</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Unsupported. See note on :class:`~can.interfaces.nican.NicanBus`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">__set_filters_has_been_called</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;using filters is not supported like this, see note on NicanBus&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># allow the constructor to call this without causing a warning</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__set_filters_has_been_called</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="NicanError"><a class="viewcode-back" href="../../../interfaces/nican.html#can.interfaces.nican.NicanError">[docs]</a><span class="k">class</span> <span class="nc">NicanError</span><span class="p">(</span><span class="n">CanError</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Error from NI-CAN driver.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">function</span><span class="p">,</span> <span class="n">error_code</span><span class="p">,</span> <span class="n">arguments</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">NicanError</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="c1">#: Status code</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">error_code</span> <span class="o">=</span> <span class="n">error_code</span>
+        <span class="c1">#: Function that failed</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">function</span> <span class="o">=</span> <span class="n">function</span>
+        <span class="c1">#: Arguments passed to function</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">arguments</span> <span class="o">=</span> <span class="n">arguments</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;Function </span><span class="si">%s</span><span class="s2"> failed:</span><span class="se">\n</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">function</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">get_error_message</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">error_code</span><span class="p">))</span></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../can.html" >can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.nican</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

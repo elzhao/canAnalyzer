@@ -1,0 +1,435 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Broadcast Manager &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Internal API" href="internal-api.html" />
+    <link rel="prev" title="Asyncio support" href="asyncio.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="internal-api.html" title="Internal API"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="asyncio.html" title="Asyncio support"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="api.html" accesskey="U">Library API</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Broadcast Manager</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="module-can.broadcastmanager">
+<span id="broadcast-manager"></span><span id="bcm"></span><h1>Broadcast Manager<a class="headerlink" href="#module-can.broadcastmanager" title="Permalink to this heading">¶</a></h1>
+<p>The broadcast manager allows the user to setup periodic message jobs.
+For example sending a particular message at a given period. The broadcast
+manager supported natively by several interfaces and a software thread
+based scheduler is used as a fallback.</p>
+<p>This example shows the socketcan backend using the broadcast manager:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="linenos">  1</span><span class="ch">#!/usr/bin/env python</span>
+<span class="linenos">  2</span><span class="c1"># coding: utf-8</span>
+<span class="linenos">  3</span>
+<span class="linenos">  4</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="linenos">  5</span><span class="sd">This example exercises the periodic sending capabilities.</span>
+<span class="linenos">  6</span>
+<span class="linenos">  7</span><span class="sd">Expects a vcan0 interface:</span>
+<span class="linenos">  8</span>
+<span class="linenos">  9</span><span class="sd">    python3 -m examples.cyclic</span>
+<span class="linenos"> 10</span>
+<span class="linenos"> 11</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="linenos"> 12</span>
+<span class="linenos"> 13</span><span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">print_function</span>
+<span class="linenos"> 14</span>
+<span class="linenos"> 15</span><span class="kn">import</span> <span class="nn">logging</span>
+<span class="linenos"> 16</span><span class="kn">import</span> <span class="nn">time</span>
+<span class="linenos"> 17</span>
+<span class="linenos"> 18</span><span class="kn">import</span> <span class="nn">can</span>
+<span class="linenos"> 19</span>
+<span class="linenos"> 20</span><span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+<span class="linenos"> 21</span>
+<span class="linenos"> 22</span>
+<span class="linenos"> 23</span><span class="k">def</span> <span class="nf">simple_periodic_send</span><span class="p">(</span><span class="n">bus</span><span class="p">):</span>
+<span class="linenos"> 24</span><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="linenos"> 25</span><span class="sd">    Sends a message every 20ms with no explicit timeout</span>
+<span class="linenos"> 26</span><span class="sd">    Sleeps for 2 seconds then stops the task.</span>
+<span class="linenos"> 27</span><span class="sd">    &quot;&quot;&quot;</span>
+<span class="linenos"> 28</span>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Starting to send a message every 200ms for 2s&quot;</span><span class="p">)</span>
+<span class="linenos"> 29</span>    <span class="n">msg</span> <span class="o">=</span> <span class="n">can</span><span class="o">.</span><span class="n">Message</span><span class="p">(</span><span class="n">arbitration_id</span><span class="o">=</span><span class="mh">0x123</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span> <span class="n">is_extended_id</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="linenos"> 30</span>    <span class="n">task</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">send_periodic</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="mf">0.20</span><span class="p">)</span>
+<span class="linenos"> 31</span>    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">task</span><span class="p">,</span> <span class="n">can</span><span class="o">.</span><span class="n">CyclicSendTaskABC</span><span class="p">)</span>
+<span class="linenos"> 32</span>    <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="linenos"> 33</span>    <span class="n">task</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+<span class="linenos"> 34</span>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;stopped cyclic send&quot;</span><span class="p">)</span>
+<span class="linenos"> 35</span>
+<span class="linenos"> 36</span>
+<span class="linenos"> 37</span><span class="k">def</span> <span class="nf">limited_periodic_send</span><span class="p">(</span><span class="n">bus</span><span class="p">):</span>
+<span class="linenos"> 38</span>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Starting to send a message every 200ms for 1s&quot;</span><span class="p">)</span>
+<span class="linenos"> 39</span>    <span class="n">msg</span> <span class="o">=</span> <span class="n">can</span><span class="o">.</span><span class="n">Message</span><span class="p">(</span><span class="n">arbitration_id</span><span class="o">=</span><span class="mh">0x12345678</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">is_extended_id</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="linenos"> 40</span>    <span class="n">task</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">send_periodic</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="mf">0.20</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">store_task</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="linenos"> 41</span>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">task</span><span class="p">,</span> <span class="n">can</span><span class="o">.</span><span class="n">LimitedDurationCyclicSendTaskABC</span><span class="p">):</span>
+<span class="linenos"> 42</span>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;This interface doesn&#39;t seem to support a &quot;</span><span class="p">)</span>
+<span class="linenos"> 43</span>        <span class="n">task</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+<span class="linenos"> 44</span>        <span class="k">return</span>
+<span class="linenos"> 45</span>
+<span class="linenos"> 46</span>    <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="linenos"> 47</span>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Cyclic send should have stopped as duration expired&quot;</span><span class="p">)</span>
+<span class="linenos"> 48</span>    <span class="c1"># Note the (finished) task will still be tracked by the Bus</span>
+<span class="linenos"> 49</span>    <span class="c1"># unless we pass `store_task=False` to bus.send_periodic</span>
+<span class="linenos"> 50</span>    <span class="c1"># alternatively calling stop removes the task from the bus</span>
+<span class="linenos"> 51</span>    <span class="c1">#task.stop()</span>
+<span class="linenos"> 52</span>
+<span class="linenos"> 53</span>
+<span class="linenos"> 54</span><span class="k">def</span> <span class="nf">test_periodic_send_with_modifying_data</span><span class="p">(</span><span class="n">bus</span><span class="p">):</span>
+<span class="linenos"> 55</span>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Starting to send a message every 200ms. Initial data is ones&quot;</span><span class="p">)</span>
+<span class="linenos"> 56</span>    <span class="n">msg</span> <span class="o">=</span> <span class="n">can</span><span class="o">.</span><span class="n">Message</span><span class="p">(</span><span class="n">arbitration_id</span><span class="o">=</span><span class="mh">0x0cf02200</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="linenos"> 57</span>    <span class="n">task</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">send_periodic</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="mf">0.20</span><span class="p">)</span>
+<span class="linenos"> 58</span>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">task</span><span class="p">,</span> <span class="n">can</span><span class="o">.</span><span class="n">ModifiableCyclicTaskABC</span><span class="p">):</span>
+<span class="linenos"> 59</span>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;This interface doesn&#39;t seem to support modification&quot;</span><span class="p">)</span>
+<span class="linenos"> 60</span>        <span class="n">task</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+<span class="linenos"> 61</span>        <span class="k">return</span>
+<span class="linenos"> 62</span>    <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="linenos"> 63</span>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Changing data of running task to begin with 99&quot;</span><span class="p">)</span>
+<span class="linenos"> 64</span>    <span class="n">msg</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mh">0x99</span>
+<span class="linenos"> 65</span>    <span class="n">task</span><span class="o">.</span><span class="n">modify_data</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<span class="linenos"> 66</span>    <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="linenos"> 67</span>
+<span class="linenos"> 68</span>    <span class="n">task</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+<span class="linenos"> 69</span>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;stopped cyclic send&quot;</span><span class="p">)</span>
+<span class="linenos"> 70</span>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Changing data of stopped task to single ff byte&quot;</span><span class="p">)</span>
+<span class="linenos"> 71</span>    <span class="n">msg</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">([</span><span class="mh">0xff</span><span class="p">])</span>
+<span class="linenos"> 72</span>    <span class="n">msg</span><span class="o">.</span><span class="n">dlc</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="linenos"> 73</span>    <span class="n">task</span><span class="o">.</span><span class="n">modify_data</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<span class="linenos"> 74</span>    <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="linenos"> 75</span>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;starting again&quot;</span><span class="p">)</span>
+<span class="linenos"> 76</span>    <span class="n">task</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<span class="linenos"> 77</span>    <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="linenos"> 78</span>    <span class="n">task</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+<span class="linenos"> 79</span>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;done&quot;</span><span class="p">)</span>
+<span class="linenos"> 80</span>
+<span class="linenos"> 81</span>
+<span class="linenos"> 82</span><span class="c1"># Will have to consider how to expose items like this. The socketcan</span>
+<span class="linenos"> 83</span><span class="c1"># interfaces will continue to support it... but the top level api won&#39;t.</span>
+<span class="linenos"> 84</span><span class="c1"># def test_dual_rate_periodic_send():</span>
+<span class="linenos"> 85</span><span class="c1">#     &quot;&quot;&quot;Send a message 10 times at 1ms intervals, then continue to send every 500ms&quot;&quot;&quot;</span>
+<span class="linenos"> 86</span><span class="c1">#     msg = can.Message(arbitration_id=0x123, data=[0, 1, 2, 3, 4, 5])</span>
+<span class="linenos"> 87</span><span class="c1">#     print(&quot;Creating cyclic task to send message 10 times at 1ms, then every 500ms&quot;)</span>
+<span class="linenos"> 88</span><span class="c1">#     task = can.interface.MultiRateCyclicSendTask(&#39;vcan0&#39;, msg, 10, 0.001, 0.50)</span>
+<span class="linenos"> 89</span><span class="c1">#     time.sleep(2)</span>
+<span class="linenos"> 90</span><span class="c1">#</span>
+<span class="linenos"> 91</span><span class="c1">#     print(&quot;Changing data[0] = 0x42&quot;)</span>
+<span class="linenos"> 92</span><span class="c1">#     msg.data[0] = 0x42</span>
+<span class="linenos"> 93</span><span class="c1">#     task.modify_data(msg)</span>
+<span class="linenos"> 94</span><span class="c1">#     time.sleep(2)</span>
+<span class="linenos"> 95</span><span class="c1">#</span>
+<span class="linenos"> 96</span><span class="c1">#     task.stop()</span>
+<span class="linenos"> 97</span><span class="c1">#     print(&quot;stopped cyclic send&quot;)</span>
+<span class="linenos"> 98</span><span class="c1">#</span>
+<span class="linenos"> 99</span><span class="c1">#     time.sleep(2)</span>
+<span class="linenos">100</span><span class="c1">#</span>
+<span class="linenos">101</span><span class="c1">#     task.start()</span>
+<span class="linenos">102</span><span class="c1">#     print(&quot;starting again&quot;)</span>
+<span class="linenos">103</span><span class="c1">#     time.sleep(2)</span>
+<span class="linenos">104</span><span class="c1">#     task.stop()</span>
+<span class="linenos">105</span><span class="c1">#     print(&quot;done&quot;)</span>
+<span class="linenos">106</span>
+<span class="linenos">107</span>
+<span class="linenos">108</span><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+<span class="linenos">109</span>
+<span class="linenos">110</span>    <span class="n">reset_msg</span> <span class="o">=</span> <span class="n">can</span><span class="o">.</span><span class="n">Message</span><span class="p">(</span><span class="n">arbitration_id</span><span class="o">=</span><span class="mh">0x00</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">is_extended_id</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="linenos">111</span>
+<span class="linenos">112</span>    <span class="k">for</span> <span class="n">interface</span><span class="p">,</span> <span class="n">channel</span> <span class="ow">in</span> <span class="p">[</span>
+<span class="linenos">113</span>        <span class="p">(</span><span class="s1">&#39;bmcan&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+<span class="linenos">114</span>        <span class="c1">#(&#39;ixxat&#39;, 0)</span>
+<span class="linenos">115</span>    <span class="p">]:</span>
+<span class="linenos">116</span>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Carrying out cyclic tests with </span><span class="si">{}</span><span class="s2"> interface&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">interface</span><span class="p">))</span>
+<span class="linenos">117</span>
+<span class="linenos">118</span>        <span class="n">bus</span> <span class="o">=</span> <span class="n">can</span><span class="o">.</span><span class="n">Bus</span><span class="p">(</span><span class="n">interface</span><span class="o">=</span><span class="n">interface</span><span class="p">,</span> <span class="n">channel</span><span class="o">=</span><span class="n">channel</span><span class="p">,</span> <span class="n">bitrate</span><span class="o">=</span><span class="mi">500000</span><span class="p">)</span>
+<span class="linenos">119</span>        <span class="n">bus</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">reset_msg</span><span class="p">)</span>
+<span class="linenos">120</span>
+<span class="linenos">121</span>        <span class="n">simple_periodic_send</span><span class="p">(</span><span class="n">bus</span><span class="p">)</span>
+<span class="linenos">122</span>
+<span class="linenos">123</span>        <span class="n">bus</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">reset_msg</span><span class="p">)</span>
+<span class="linenos">124</span>
+<span class="linenos">125</span>        <span class="n">limited_periodic_send</span><span class="p">(</span><span class="n">bus</span><span class="p">)</span>
+<span class="linenos">126</span>
+<span class="linenos">127</span>        <span class="n">test_periodic_send_with_modifying_data</span><span class="p">(</span><span class="n">bus</span><span class="p">)</span>
+<span class="linenos">128</span>
+<span class="linenos">129</span>        <span class="c1">#print(&quot;Carrying out multirate cyclic test for {} interface&quot;.format(interface))</span>
+<span class="linenos">130</span>        <span class="c1">#can.rc[&#39;interface&#39;] = interface</span>
+<span class="linenos">131</span>        <span class="c1">#test_dual_rate_periodic_send()</span>
+<span class="linenos">132</span>
+<span class="linenos">133</span>        <span class="n">bus</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+<span class="linenos">134</span>
+<span class="linenos">135</span>    <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+</pre></div>
+</div>
+<section id="message-sending-tasks">
+<h2>Message Sending Tasks<a class="headerlink" href="#message-sending-tasks" title="Permalink to this heading">¶</a></h2>
+<p>The class based api for the broadcast manager uses a series of
+<a class="reference external" href="https://www.ianlewis.org/en/mixins-and-python">mixin classes</a>.
+All mixins inherit from <a class="reference internal" href="#can.broadcastmanager.CyclicSendTaskABC" title="can.broadcastmanager.CyclicSendTaskABC"><code class="xref py py-class docutils literal notranslate"><span class="pre">CyclicSendTaskABC</span></code></a>
+which inherits from <a class="reference internal" href="#can.broadcastmanager.CyclicTask" title="can.broadcastmanager.CyclicTask"><code class="xref py py-class docutils literal notranslate"><span class="pre">CyclicTask</span></code></a>.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.broadcastmanager.CyclicTask">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.broadcastmanager.</span></span><span class="sig-name descname"><span class="pre">CyclicTask</span></span><a class="reference internal" href="_modules/can/broadcastmanager.html#CyclicTask"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.broadcastmanager.CyclicTask" title="Permalink to this definition">¶</a></dt>
+<dd><p>Abstract Base for all cyclic tasks.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="can.broadcastmanager.CyclicTask.stop">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/broadcastmanager.html#CyclicTask.stop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.broadcastmanager.CyclicTask.stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Cancel this periodic task.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="api.html#can.CanError" title="can.CanError"><strong>can.CanError</strong></a> – If stop is called on an already stopped task.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="can.broadcastmanager.CyclicSendTaskABC">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.broadcastmanager.</span></span><span class="sig-name descname"><span class="pre">CyclicSendTaskABC</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">period</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/broadcastmanager.html#CyclicSendTaskABC"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.broadcastmanager.CyclicSendTaskABC" title="Permalink to this definition">¶</a></dt>
+<dd><p>Message send task with defined period</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>message</strong> (<a class="reference internal" href="message.html#can.Message" title="can.Message"><em>can.Message</em></a>) – The message to be sent periodically.</p></li>
+<li><p><strong>period</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – The rate in seconds at which to send the message.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="can.broadcastmanager.LimitedDurationCyclicSendTaskABC">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.broadcastmanager.</span></span><span class="sig-name descname"><span class="pre">LimitedDurationCyclicSendTaskABC</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">period</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">duration</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/broadcastmanager.html#LimitedDurationCyclicSendTaskABC"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.broadcastmanager.LimitedDurationCyclicSendTaskABC" title="Permalink to this definition">¶</a></dt>
+<dd><p>Message send task with a defined duration and period.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>message</strong> (<a class="reference internal" href="message.html#can.Message" title="can.Message"><em>can.Message</em></a>) – The message to be sent periodically.</p></li>
+<li><p><strong>period</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – The rate in seconds at which to send the message.</p></li>
+<li><p><strong>duration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – The duration to keep sending this message at given rate.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="can.broadcastmanager.MultiRateCyclicSendTaskABC">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.broadcastmanager.</span></span><span class="sig-name descname"><span class="pre">MultiRateCyclicSendTaskABC</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">count</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_period</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subsequent_period</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/broadcastmanager.html#MultiRateCyclicSendTaskABC"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.broadcastmanager.MultiRateCyclicSendTaskABC" title="Permalink to this definition">¶</a></dt>
+<dd><p>A Cyclic send task that supports switches send frequency after a set time.</p>
+<p>Transmits a message <cite>count</cite> times at <cite>initial_period</cite> then continues to
+transmit message at <cite>subsequent_period</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>channel</strong> – See interface specific documentation.</p></li>
+<li><p><strong>message</strong> (<a class="reference internal" href="message.html#can.Message" title="can.Message"><em>can.Message</em></a>) – </p></li>
+<li><p><strong>count</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
+<li><p><strong>initial_period</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – </p></li>
+<li><p><strong>subsequent_period</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="can.ModifiableCyclicTaskABC">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">ModifiableCyclicTaskABC</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">period</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/broadcastmanager.html#ModifiableCyclicTaskABC"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.ModifiableCyclicTaskABC" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds support for modifying a periodic message</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>message</strong> (<a class="reference internal" href="message.html#can.Message" title="can.Message"><em>can.Message</em></a>) – The message to be sent periodically.</p></li>
+<li><p><strong>period</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – The rate in seconds at which to send the message.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="can.ModifiableCyclicTaskABC.modify_data">
+<span class="sig-name descname"><span class="pre">modify_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/broadcastmanager.html#ModifiableCyclicTaskABC.modify_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.ModifiableCyclicTaskABC.modify_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update the contents of this periodically sent message without altering
+the timing.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>message</strong> (<a class="reference internal" href="message.html#can.Message" title="can.Message"><em>can.Message</em></a>) – The message with the new <a class="reference internal" href="message.html#can.Message.data" title="can.Message.data"><code class="xref py py-attr docutils literal notranslate"><span class="pre">can.Message.data</span></code></a>.
+Note: The arbitration ID cannot be changed.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="can.RestartableCyclicTaskABC">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">RestartableCyclicTaskABC</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">period</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/broadcastmanager.html#RestartableCyclicTaskABC"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.RestartableCyclicTaskABC" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds support for restarting a stopped cyclic task</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>message</strong> (<a class="reference internal" href="message.html#can.Message" title="can.Message"><em>can.Message</em></a>) – The message to be sent periodically.</p></li>
+<li><p><strong>period</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – The rate in seconds at which to send the message.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="can.RestartableCyclicTaskABC.start">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/broadcastmanager.html#RestartableCyclicTaskABC.start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.RestartableCyclicTaskABC.start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Restart a stopped periodic task.</p>
+</dd></dl>
+
+</dd></dl>
+
+<section id="functional-api">
+<h3>Functional API<a class="headerlink" href="#functional-api" title="Permalink to this heading">¶</a></h3>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The functional API in <a class="reference internal" href="#can.broadcastmanager.send_periodic" title="can.broadcastmanager.send_periodic"><code class="xref py py-func docutils literal notranslate"><span class="pre">can.broadcastmanager.send_periodic()</span></code></a> is now deprecated
+and will be removed in version 4.0.
+Use the object oriented API via <a class="reference internal" href="bus.html#can.BusABC.send_periodic" title="can.BusABC.send_periodic"><code class="xref py py-meth docutils literal notranslate"><span class="pre">can.BusABC.send_periodic()</span></code></a> instead.</p>
+</div>
+<dl class="py function">
+<dt class="sig sig-object py" id="can.broadcastmanager.send_periodic">
+<span class="sig-prename descclassname"><span class="pre">can.broadcastmanager.</span></span><span class="sig-name descname"><span class="pre">send_periodic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bus</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">period</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/broadcastmanager.html#send_periodic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.broadcastmanager.send_periodic" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send a <a class="reference internal" href="message.html#can.Message" title="can.Message"><code class="xref py py-class docutils literal notranslate"><span class="pre">Message</span></code></a> every <cite>period</cite> seconds on the given bus.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bus</strong> (<a class="reference internal" href="bus.html#can.BusABC" title="can.BusABC"><em>can.BusABC</em></a>) – A CAN bus which supports sending.</p></li>
+<li><p><strong>message</strong> (<a class="reference internal" href="message.html#can.Message" title="can.Message"><em>can.Message</em></a>) – Message to send periodically.</p></li>
+<li><p><strong>period</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – The minimum time between sending messages.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A started task instance</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Broadcast Manager</a><ul>
+<li><a class="reference internal" href="#message-sending-tasks">Message Sending Tasks</a><ul>
+<li><a class="reference internal" href="#can.broadcastmanager.CyclicTask"><code class="docutils literal notranslate"><span class="pre">CyclicTask</span></code></a><ul>
+<li><a class="reference internal" href="#can.broadcastmanager.CyclicTask.stop"><code class="docutils literal notranslate"><span class="pre">CyclicTask.stop()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#can.broadcastmanager.CyclicSendTaskABC"><code class="docutils literal notranslate"><span class="pre">CyclicSendTaskABC</span></code></a></li>
+<li><a class="reference internal" href="#can.broadcastmanager.LimitedDurationCyclicSendTaskABC"><code class="docutils literal notranslate"><span class="pre">LimitedDurationCyclicSendTaskABC</span></code></a></li>
+<li><a class="reference internal" href="#can.broadcastmanager.MultiRateCyclicSendTaskABC"><code class="docutils literal notranslate"><span class="pre">MultiRateCyclicSendTaskABC</span></code></a></li>
+<li><a class="reference internal" href="#can.ModifiableCyclicTaskABC"><code class="docutils literal notranslate"><span class="pre">ModifiableCyclicTaskABC</span></code></a><ul>
+<li><a class="reference internal" href="#can.ModifiableCyclicTaskABC.modify_data"><code class="docutils literal notranslate"><span class="pre">ModifiableCyclicTaskABC.modify_data()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#can.RestartableCyclicTaskABC"><code class="docutils literal notranslate"><span class="pre">RestartableCyclicTaskABC</span></code></a><ul>
+<li><a class="reference internal" href="#can.RestartableCyclicTaskABC.start"><code class="docutils literal notranslate"><span class="pre">RestartableCyclicTaskABC.start()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#functional-api">Functional API</a><ul>
+<li><a class="reference internal" href="#can.broadcastmanager.send_periodic"><code class="docutils literal notranslate"><span class="pre">send_periodic()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="asyncio.html"
+                          title="previous chapter">Asyncio support</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="internal-api.html"
+                          title="next chapter">Internal API</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/bcm.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="internal-api.html" title="Internal API"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="asyncio.html" title="Asyncio support"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="api.html" >Library API</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Broadcast Manager</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

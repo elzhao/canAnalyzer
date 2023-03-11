@@ -1,0 +1,449 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Bus &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Message" href="message.html" />
+    <link rel="prev" title="Library API" href="api.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="message.html" title="Message"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="api.html" title="Library API"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="api.html" accesskey="U">Library API</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Bus</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="bus">
+<span id="id1"></span><h1>Bus<a class="headerlink" href="#bus" title="Permalink to this heading">¶</a></h1>
+<p>The <a class="reference internal" href="#can.BusABC" title="can.BusABC"><code class="xref py py-class docutils literal notranslate"><span class="pre">BusABC</span></code></a> class, as the name suggests, provides an abstraction of a CAN bus.
+The bus provides a wrapper around a physical or virtual CAN Bus.
+An interface specific instance of the <a class="reference internal" href="#can.BusABC" title="can.BusABC"><code class="xref py py-class docutils literal notranslate"><span class="pre">BusABC</span></code></a> is created by the <a class="reference internal" href="#can.Bus" title="can.Bus"><code class="xref py py-class docutils literal notranslate"><span class="pre">Bus</span></code></a>
+class, for example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">vector_bus</span> <span class="o">=</span> <span class="n">can</span><span class="o">.</span><span class="n">Bus</span><span class="p">(</span><span class="n">interface</span><span class="o">=</span><span class="s1">&#39;vector&#39;</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>That bus is then able to handle the interface specific software/hardware interactions
+and implements the <a class="reference internal" href="#can.BusABC" title="can.BusABC"><code class="xref py py-class docutils literal notranslate"><span class="pre">BusABC</span></code></a> API.</p>
+<p>A thread safe bus wrapper is also available, see <a class="reference internal" href="#thread-safe-bus">Thread safe bus</a>.</p>
+<section id="autoconfig-bus">
+<h2>Autoconfig Bus<a class="headerlink" href="#autoconfig-bus" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.Bus">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">Bus</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/interface.html#Bus"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.Bus" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bus wrapper with configuration loading.</p>
+<p>Instantiates a CAN Bus of the given <code class="docutils literal notranslate"><span class="pre">interface</span></code>, falls back to reading a
+configuration file from default locations.</p>
+<p>Construct and open a CAN bus instance of the specified type.</p>
+<p>Subclasses should call though this method with all given parameters
+as it handles generic tasks like applying filters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>channel</strong> – The can interface identifier. Expected type is backend dependent.</p></li>
+<li><p><strong>can_filters</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a>) – See <a class="reference internal" href="#can.BusABC.set_filters" title="can.BusABC.set_filters"><code class="xref py py-meth docutils literal notranslate"><span class="pre">set_filters()</span></code></a> for details.</p></li>
+<li><p><strong>kwargs</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – Any backend dependent configurations are passed in this dictionary</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="api">
+<h2>API<a class="headerlink" href="#api" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.BusABC">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">BusABC</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">can_filters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/bus.html#BusABC"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.BusABC" title="Permalink to this definition">¶</a></dt>
+<dd><p>The CAN Bus Abstract Base Class that serves as the basis
+for all concrete interfaces.</p>
+<p>This class may be used as an iterator over the received messages.</p>
+<p>Construct and open a CAN bus instance of the specified type.</p>
+<p>Subclasses should call though this method with all given parameters
+as it handles generic tasks like applying filters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>channel</strong> – The can interface identifier. Expected type is backend dependent.</p></li>
+<li><p><strong>can_filters</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a>) – See <a class="reference internal" href="#can.BusABC.set_filters" title="can.BusABC.set_filters"><code class="xref py py-meth docutils literal notranslate"><span class="pre">set_filters()</span></code></a> for details.</p></li>
+<li><p><strong>kwargs</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – Any backend dependent configurations are passed in this dictionary</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="can.BusABC.__iter__">
+<span class="sig-name descname"><span class="pre">__iter__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/bus.html#BusABC.__iter__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.BusABC.__iter__" title="Permalink to this definition">¶</a></dt>
+<dd><p>Allow iteration on messages as they are received.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">bus</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Yields<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="message.html#can.Message" title="can.Message"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.Message</span></code></a> msg objects.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="can.BusABC.RECV_LOGGING_LEVEL">
+<span class="sig-name descname"><span class="pre">RECV_LOGGING_LEVEL</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">9</span></em><a class="headerlink" href="#can.BusABC.RECV_LOGGING_LEVEL" title="Permalink to this definition">¶</a></dt>
+<dd><p>Log level for received messages</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="can.BusABC.channel_info">
+<span class="sig-name descname"><span class="pre">channel_info</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'unknown'</span></em><a class="headerlink" href="#can.BusABC.channel_info" title="Permalink to this definition">¶</a></dt>
+<dd><p>a string describing the underlying bus and/or channel</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="can.BusABC.filters">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">filters</span></span><a class="headerlink" href="#can.BusABC.filters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Modify the filters of this bus. See <a class="reference internal" href="#can.BusABC.set_filters" title="can.BusABC.set_filters"><code class="xref py py-meth docutils literal notranslate"><span class="pre">set_filters()</span></code></a>
+for details.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.BusABC.flush_tx_buffer">
+<span class="sig-name descname"><span class="pre">flush_tx_buffer</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/bus.html#BusABC.flush_tx_buffer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.BusABC.flush_tx_buffer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Discard every message that may be queued in the output buffer(s).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.BusABC.recv">
+<span class="sig-name descname"><span class="pre">recv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/bus.html#BusABC.recv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.BusABC.recv" title="Permalink to this definition">¶</a></dt>
+<dd><p>Block waiting for a message from the Bus.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>timeout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em> or </em><em>None</em>) – seconds to wait for a message or None to wait indefinitely</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="message.html#can.Message" title="can.Message">can.Message</a> or None</p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None on timeout or a <a class="reference internal" href="message.html#can.Message" title="can.Message"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.Message</span></code></a> object.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="api.html#can.CanError" title="can.CanError"><strong>can.CanError</strong></a> – if an error occurred while reading</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.BusABC.send">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">send</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/bus.html#BusABC.send"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.BusABC.send" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transmit a message to the CAN bus.</p>
+<p>Override this method to enable the transmit path.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>msg</strong> (<a class="reference internal" href="message.html#can.Message" title="can.Message"><em>can.Message</em></a>) – A message object.</p></li>
+<li><p><strong>timeout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em> or </em><em>None</em>) – If &gt; 0, wait up to this many seconds for message to be ACK’ed or
+for transmit queue to be ready depending on driver implementation.
+If timeout is exceeded, an exception will be raised.
+Might not be supported by all interfaces.
+None blocks indefinitely.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="api.html#can.CanError" title="can.CanError"><strong>can.CanError</strong></a> – if the message could not be sent</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.BusABC.send_periodic">
+<span class="sig-name descname"><span class="pre">send_periodic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">period</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">duration</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">store_task</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/bus.html#BusABC.send_periodic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.BusABC.send_periodic" title="Permalink to this definition">¶</a></dt>
+<dd><p>Start sending a message at a given period on this bus.</p>
+<p>The task will be active until one of the following conditions are met:</p>
+<ul class="simple">
+<li><p>the (optional) duration expires</p></li>
+<li><p>the Bus instance goes out of scope</p></li>
+<li><p>the Bus instance is shutdown</p></li>
+<li><p><a class="reference internal" href="#can.BusABC.stop_all_periodic_tasks" title="can.BusABC.stop_all_periodic_tasks"><code class="xref py py-meth docutils literal notranslate"><span class="pre">BusABC.stop_all_periodic_tasks()</span></code></a> is called</p></li>
+<li><p>the task’s <code class="xref py py-meth docutils literal notranslate"><span class="pre">CyclicTask.stop()</span></code> method is called.</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>msg</strong> (<a class="reference internal" href="message.html#can.Message" title="can.Message"><em>can.Message</em></a>) – Message to transmit</p></li>
+<li><p><strong>period</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – Period in seconds between each message</p></li>
+<li><p><strong>duration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – The duration to keep sending this message at given rate. If
+no duration is provided, the task will continue indefinitely.</p></li>
+<li><p><strong>store_task</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – If True (the default) the task will be attached to this Bus instance.
+Disable to instead manage tasks manually.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A started task instance. Note the task can be stopped (and depending on
+the backend modified) by calling the <code class="xref py py-meth docutils literal notranslate"><span class="pre">stop()</span></code> method.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="bcm.html#can.broadcastmanager.CyclicSendTaskABC" title="can.broadcastmanager.CyclicSendTaskABC">can.broadcastmanager.CyclicSendTaskABC</a></p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Note the duration before the message stops being sent may not
+be exactly the same as the duration specified by the user. In
+general the message will be sent at the given rate until at
+least <strong>duration</strong> seconds.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For extremely long running Bus instances with many short lived tasks the default
+api with <code class="docutils literal notranslate"><span class="pre">store_task==True</span></code> may not be appropriate as the stopped tasks are
+still taking up memory as they are associated with the Bus instance.</p>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.BusABC.set_filters">
+<span class="sig-name descname"><span class="pre">set_filters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/bus.html#BusABC.set_filters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.BusABC.set_filters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Apply filtering to all messages received by this Bus.</p>
+<p>All messages that match at least one filter are returned.
+If <cite>filters</cite> is <cite>None</cite> or a zero length sequence, all
+messages are matched.</p>
+<p>Calling without passing any filters will reset the applied
+filters to <cite>None</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>filters</strong> – <p>A iterable of dictionaries each containing a “can_id”,
+a “can_mask”, and an optional “extended” key.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="p">[{</span><span class="s2">&quot;can_id&quot;</span><span class="p">:</span> <span class="mh">0x11</span><span class="p">,</span> <span class="s2">&quot;can_mask&quot;</span><span class="p">:</span> <span class="mh">0x21</span><span class="p">,</span> <span class="s2">&quot;extended&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">}]</span>
+</pre></div>
+</div>
+<p>A filter matches, when
+<code class="docutils literal notranslate"><span class="pre">&lt;received_can_id&gt;</span> <span class="pre">&amp;</span> <span class="pre">can_mask</span> <span class="pre">==</span> <span class="pre">can_id</span> <span class="pre">&amp;</span> <span class="pre">can_mask</span></code>.
+If <code class="docutils literal notranslate"><span class="pre">extended</span></code> is set as well, it only matches messages where
+<code class="docutils literal notranslate"><span class="pre">&lt;received_is_extended&gt;</span> <span class="pre">==</span> <span class="pre">extended</span></code>. Else it matches every
+messages based only on the arbitration ID and mask.</p>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.BusABC.shutdown">
+<span class="sig-name descname"><span class="pre">shutdown</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/bus.html#BusABC.shutdown"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.BusABC.shutdown" title="Permalink to this definition">¶</a></dt>
+<dd><p>Called to carry out any interface specific cleanup required
+in shutting down a bus.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="can.BusABC.state">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">state</span></span><a class="headerlink" href="#can.BusABC.state" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the current state of the hardware</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>can.BusState</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.BusABC.stop_all_periodic_tasks">
+<span class="sig-name descname"><span class="pre">stop_all_periodic_tasks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">remove_tasks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/bus.html#BusABC.stop_all_periodic_tasks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.BusABC.stop_all_periodic_tasks" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stop sending any messages that were started using <strong>bus.send_periodic</strong>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The result is undefined if a single task throws an exception while being stopped.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>remove_tasks</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – Stop tracking the stopped tasks.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="transmitting">
+<h2>Transmitting<a class="headerlink" href="#transmitting" title="Permalink to this heading">¶</a></h2>
+<p>Writing individual messages to the bus is done by calling the <a class="reference internal" href="#can.BusABC.send" title="can.BusABC.send"><code class="xref py py-meth docutils literal notranslate"><span class="pre">send()</span></code></a> method
+and passing a <a class="reference internal" href="message.html#can.Message" title="can.Message"><code class="xref py py-class docutils literal notranslate"><span class="pre">Message</span></code></a> instance. Periodic sending is controlled by the
+<a class="reference internal" href="bcm.html#bcm"><span class="std std-ref">broadcast manager</span></a>.</p>
+</section>
+<section id="receiving">
+<h2>Receiving<a class="headerlink" href="#receiving" title="Permalink to this heading">¶</a></h2>
+<p>Reading from the bus is achieved by either calling the <a class="reference internal" href="#can.BusABC.recv" title="can.BusABC.recv"><code class="xref py py-meth docutils literal notranslate"><span class="pre">recv()</span></code></a> method or
+by directly iterating over the bus:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">bus</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Alternatively the <a class="reference internal" href="listeners.html#can.Listener" title="can.Listener"><code class="xref py py-class docutils literal notranslate"><span class="pre">Listener</span></code></a> api can be used, which is a list of <a class="reference internal" href="listeners.html#can.Listener" title="can.Listener"><code class="xref py py-class docutils literal notranslate"><span class="pre">Listener</span></code></a>
+subclasses that receive notifications when new messages arrive.</p>
+</section>
+<section id="filtering">
+<h2>Filtering<a class="headerlink" href="#filtering" title="Permalink to this heading">¶</a></h2>
+<p>Message filtering can be set up for each bus. Where the interface supports it, this is carried
+out in the hardware or kernel layer - not in Python.</p>
+</section>
+</section>
+<section id="thread-safe-bus">
+<h1>Thread safe bus<a class="headerlink" href="#thread-safe-bus" title="Permalink to this heading">¶</a></h1>
+<p>This thread safe version of the <a class="reference internal" href="#can.BusABC" title="can.BusABC"><code class="xref py py-class docutils literal notranslate"><span class="pre">BusABC</span></code></a> class can be used by multiple threads at once.
+Sending and receiving is locked separately to avoid unnecessary delays.
+Conflicting calls are executed by blocking until the bus is accessible.</p>
+<p>It can be used exactly like the normal <a class="reference internal" href="#can.BusABC" title="can.BusABC"><code class="xref py py-class docutils literal notranslate"><span class="pre">BusABC</span></code></a>:</p>
+<blockquote>
+<div><p># ‘socketcan’ is only an example interface, it works with all the others too
+my_bus = can.ThreadSafeBus(interface=’socketcan’, channel=’vcan0’)
+my_bus.send(…)
+my_bus.recv(…)</p>
+</div></blockquote>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.ThreadSafeBus">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">ThreadSafeBus</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/thread_safe_bus.html#ThreadSafeBus"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.ThreadSafeBus" title="Permalink to this definition">¶</a></dt>
+<dd><p>Contains a thread safe <a class="reference internal" href="#can.BusABC" title="can.BusABC"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.BusABC</span></code></a> implementation that
+wraps around an existing interface instance. All public methods
+of that base class are now safe to be called from multiple threads.
+The send and receive methods are synchronized separately.</p>
+<p>Use this as a drop-in replacement for <a class="reference internal" href="#can.BusABC" title="can.BusABC"><code class="xref py py-class docutils literal notranslate"><span class="pre">BusABC</span></code></a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This approach assumes that both <a class="reference internal" href="#can.BusABC.send" title="can.BusABC.send"><code class="xref py py-meth docutils literal notranslate"><span class="pre">send()</span></code></a> and
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">_recv_internal()</span></code> of the underlying bus instance can be
+called simultaneously, and that the methods use <code class="xref py py-meth docutils literal notranslate"><span class="pre">_recv_internal()</span></code>
+instead of <a class="reference internal" href="#can.BusABC.recv" title="can.BusABC.recv"><code class="xref py py-meth docutils literal notranslate"><span class="pre">recv()</span></code></a> directly.</p>
+</div>
+</dd></dl>
+
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Bus</a><ul>
+<li><a class="reference internal" href="#autoconfig-bus">Autoconfig Bus</a><ul>
+<li><a class="reference internal" href="#can.Bus"><code class="docutils literal notranslate"><span class="pre">Bus</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#api">API</a><ul>
+<li><a class="reference internal" href="#can.BusABC"><code class="docutils literal notranslate"><span class="pre">BusABC</span></code></a><ul>
+<li><a class="reference internal" href="#can.BusABC.__iter__"><code class="docutils literal notranslate"><span class="pre">BusABC.__iter__()</span></code></a></li>
+<li><a class="reference internal" href="#can.BusABC.RECV_LOGGING_LEVEL"><code class="docutils literal notranslate"><span class="pre">BusABC.RECV_LOGGING_LEVEL</span></code></a></li>
+<li><a class="reference internal" href="#can.BusABC.channel_info"><code class="docutils literal notranslate"><span class="pre">BusABC.channel_info</span></code></a></li>
+<li><a class="reference internal" href="#can.BusABC.filters"><code class="docutils literal notranslate"><span class="pre">BusABC.filters</span></code></a></li>
+<li><a class="reference internal" href="#can.BusABC.flush_tx_buffer"><code class="docutils literal notranslate"><span class="pre">BusABC.flush_tx_buffer()</span></code></a></li>
+<li><a class="reference internal" href="#can.BusABC.recv"><code class="docutils literal notranslate"><span class="pre">BusABC.recv()</span></code></a></li>
+<li><a class="reference internal" href="#can.BusABC.send"><code class="docutils literal notranslate"><span class="pre">BusABC.send()</span></code></a></li>
+<li><a class="reference internal" href="#can.BusABC.send_periodic"><code class="docutils literal notranslate"><span class="pre">BusABC.send_periodic()</span></code></a></li>
+<li><a class="reference internal" href="#can.BusABC.set_filters"><code class="docutils literal notranslate"><span class="pre">BusABC.set_filters()</span></code></a></li>
+<li><a class="reference internal" href="#can.BusABC.shutdown"><code class="docutils literal notranslate"><span class="pre">BusABC.shutdown()</span></code></a></li>
+<li><a class="reference internal" href="#can.BusABC.state"><code class="docutils literal notranslate"><span class="pre">BusABC.state</span></code></a></li>
+<li><a class="reference internal" href="#can.BusABC.stop_all_periodic_tasks"><code class="docutils literal notranslate"><span class="pre">BusABC.stop_all_periodic_tasks()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#transmitting">Transmitting</a></li>
+<li><a class="reference internal" href="#receiving">Receiving</a></li>
+<li><a class="reference internal" href="#filtering">Filtering</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#thread-safe-bus">Thread safe bus</a><ul>
+<li><a class="reference internal" href="#can.ThreadSafeBus"><code class="docutils literal notranslate"><span class="pre">ThreadSafeBus</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="api.html"
+                          title="previous chapter">Library API</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="message.html"
+                          title="next chapter">Message</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/bus.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="message.html" title="Message"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="api.html" title="Library API"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="api.html" >Library API</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Bus</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

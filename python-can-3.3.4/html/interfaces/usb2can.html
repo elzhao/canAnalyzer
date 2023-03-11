@@ -1,0 +1,358 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>USB2CAN Interface &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
+    
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="NI-CAN" href="nican.html" />
+    <link rel="prev" title="PCAN Basic API" href="pcan.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="nican.html" title="NI-CAN"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="pcan.html" title="PCAN Basic API"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../interfaces.html" accesskey="U">CAN Interface Modules</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">USB2CAN Interface</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="usb2can-interface">
+<h1>USB2CAN Interface<a class="headerlink" href="#usb2can-interface" title="Permalink to this heading">¶</a></h1>
+<section id="overview">
+<h2>OVERVIEW<a class="headerlink" href="#overview" title="Permalink to this heading">¶</a></h2>
+<p>The <a class="reference external" href="http://www.8devices.com/products/usb2can">USB2CAN</a> is a cheap CAN interface based on an ARM7 chip (STR750FV2).
+There is support for this device on Linux through the <a class="reference internal" href="socketcan.html"><span class="doc">SocketCAN</span></a> interface and for Windows using this
+<code class="docutils literal notranslate"><span class="pre">usb2can</span></code> interface.</p>
+</section>
+<section id="windows-support">
+<h2>WINDOWS SUPPORT<a class="headerlink" href="#windows-support" title="Permalink to this heading">¶</a></h2>
+<p>Support though windows is achieved through a DLL very similar to the way the PCAN functions.  The API is called CANAL
+(CAN Abstraction Layer) which is a separate project designed to be used with VSCP which is a socket like messaging system
+that is not only cross platform but also supports other types of devices.  This device can be used through one of three ways
+1)Through python-can
+2)CANAL API either using the DLL and C/C++ or through the python wrapper that has been added to this project
+3)VSCP
+Using python-can is strongly suggested as with little extra work the same interface can be used on both Windows and Linux.</p>
+</section>
+<section id="windows-install">
+<h2>WINDOWS INSTALL<a class="headerlink" href="#windows-install" title="Permalink to this heading">¶</a></h2>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>To install on Windows download the USB2CAN Windows driver.  It is compatible with XP, Vista, Win7, Win8/8.1. (Written against driver version v1.0.2.1)</p></li>
+<li><p>Install the appropriate version of <a class="reference external" href="https://sourceforge.net/projects/pywin32/">pywin32</a> (win32com)</p></li>
+<li><p>Download the USB2CAN CANAL DLL from the USB2CAN website.  Place this in either the same directory you are running usb2can.py from or your DLL folder in your python install.
+Note that only a 32-bit version is currently available, so this only works in a 32-bit Python environment.
+(Written against CANAL DLL version v1.0.6)</p></li>
+</ol>
+</div></blockquote>
+</section>
+<section id="interface-layout">
+<h2>Interface Layout<a class="headerlink" href="#interface-layout" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">usb2canabstractionlayer.py</span></code></dt><dd><p>This file is only a wrapper for the CANAL API that the interface expects.  There are also a couple of constants here to try and make dealing with the
+bitwise operations for flag setting a little easier.  Other than that this is only the CANAL API.  If a programmer wanted to work with the API directly this is
+the file that allows you to do this.  The CANAL project does not provide this wrapper and normally must be accessed with C.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">usb2canInterface.py</span></code></dt><dd><p>This file provides the translation to and from the python-can library to the CANAL API.  This is where all the logic is and setup code is.  Most issues if they are found
+will be either found here or within the DLL that is provided</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">serial_selector.py</span></code></dt><dd><p>See the section below for the reason for adding this as it is a little odd.  What program does is if a serial number is not provided to the usb2canInterface file this
+program does WMI (Windows Management Instrumentation) calls to try and figure out what device to connect to.  It then returns the serial number of the device.
+Currently it is not really smart enough to figure out what to do if there are multiple devices.  This needs to be changed if people are using more than one interface.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</section>
+<section id="interface-specific-items">
+<h2>Interface Specific Items<a class="headerlink" href="#interface-specific-items" title="Permalink to this heading">¶</a></h2>
+<p>There are a few things that are kinda strange about this device and are not overly obvious about the code or things that are not done being implemented in the DLL.</p>
+<ol class="arabic simple">
+<li><dl class="simple">
+<dt>You need the Serial Number to connect to the device under Windows.  This is part of the “setup string” that configures the device. There are a few options for how to get this.</dt><dd><ol class="arabic simple">
+<li><p>Use usb2canWin.py to find the serial number</p></li>
+<li><p>Look on the device and enter it either through a prompt/barcode scanner/hardcode it.(Not recommended)</p></li>
+<li><p>Reprogram the device serial number to something and do that for all the devices you own.    (Really Not Recommended, can no longer use multiple devices on one computer)</p></li>
+</ol>
+</dd>
+</dl>
+</li>
+<li><p>In usb2canabstractionlayer.py there is a structure called CanalMsg which has a unsigned byte array of size 8.  In the usb2canInterface file it passes in an unsigned byte array of
+size 8 also which if you pass less than 8 bytes in it stuffs it with extra zeros.  So if the data “01020304” is sent the message would look like “0102030400000000”.
+There is also a part of this structure called sizeData which is the actual length of the data that was sent not the stuffed message (in this case would be 4).
+What then happens is although a message of size 8 is sent to the device only the length of information so the first 4 bytes of information would be sent.  This
+is done because the DLL expects a length of 8 and nothing else.  So to make it compatible that has to be sent through the wrapper.  If usb2canInterface sent an
+array of length 4 with sizeData of 4 as well the array would throw an incompatible data type error.  There is a Wireshark file posted in Issue #36 that demonstrates
+that the bus is only sending the data and not the extra zeros.</p></li>
+<li><p>The masking features have not been implemented currently in the CANAL interface in the version currently on the USB2CAN website.</p></li>
+</ol>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Currently message filtering is not implemented. Contributions are most welcome!</p>
+</div>
+</section>
+<section id="bus">
+<h2>Bus<a class="headerlink" href="#bus" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.interfaces.usb2can.Usb2canBus">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.interfaces.usb2can.</span></span><span class="sig-name descname"><span class="pre">Usb2canBus</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dll</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'usb2can.dll'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flags</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bitrate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500000</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/usb2can/usb2canInterface.html#Usb2canBus"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.usb2can.Usb2canBus" title="Permalink to this definition">¶</a></dt>
+<dd><p>Interface to a USB2CAN Bus.</p>
+<p>This interface only works on Windows.
+Please use socketcan on Linux.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>(</strong><strong>optional</strong><strong>)</strong> (<em>str serial</em>) – The device’s serial number. If not provided, Windows Management Instrumentation
+will be used to identify the first such device.</p></li>
+<li><p><strong>(</strong><strong>optional</strong><strong>)</strong> – Bitrate of channel in bit/s. Values will be limited to a maximum of 1000 Kb/s.
+Default is 500 Kbs</p></li>
+<li><p><strong>(</strong><strong>optional</strong><strong>)</strong> – Flags to directly pass to open function of the usb2can abstraction layer.</p></li>
+<li><p><strong>(</strong><strong>optional</strong><strong>)</strong> – Path to the DLL with the CANAL API to load
+Defaults to ‘usb2can.dll’</p></li>
+<li><p><strong>(</strong><strong>optional</strong><strong>)</strong> – Alias for <cite>channel</cite> that is provided for legacy reasons.
+If both <cite>serial</cite> and <cite>channel</cite> are set, <cite>serial</cite> will be used and
+channel will be ignored.</p></li>
+</ul>
+</dd>
+</dl>
+<p>Construct and open a CAN bus instance of the specified type.</p>
+<p>Subclasses should call though this method with all given parameters
+as it handles generic tasks like applying filters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>channel</strong> – The can interface identifier. Expected type is backend dependent.</p></li>
+<li><p><strong>can_filters</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a>) – See <a class="reference internal" href="../bus.html#can.BusABC.set_filters" title="can.BusABC.set_filters"><code class="xref py py-meth docutils literal notranslate"><span class="pre">set_filters()</span></code></a> for details.</p></li>
+<li><p><strong>kwargs</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – Any backend dependent configurations are passed in this dictionary</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="internals">
+<h2>Internals<a class="headerlink" href="#internals" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.interfaces.usb2can.Usb2CanAbstractionLayer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.interfaces.usb2can.</span></span><span class="sig-name descname"><span class="pre">Usb2CanAbstractionLayer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dll</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'usb2can.dll'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/usb2can/usb2canabstractionlayer.html#Usb2CanAbstractionLayer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer" title="Permalink to this definition">¶</a></dt>
+<dd><p>A low level wrapper around the usb2can library.</p>
+<p>Documentation: <a class="reference external" href="http://www.8devices.com/media/products/usb2can/downloads/CANAL_API.pdf">http://www.8devices.com/media/products/usb2can/downloads/CANAL_API.pdf</a></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>(</strong><strong>optional</strong><strong>)</strong> (<em>dll</em>) – the path to the usb2can DLL to load</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#OSError" title="(in Python v3.11)"><strong>OSError</strong></a> – if the DLL could not be loaded</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="can.interfaces.usb2can.Usb2CanAbstractionLayer.blocking_receive">
+<span class="sig-name descname"><span class="pre">blocking_receive</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">msg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/usb2can/usb2canabstractionlayer.html#Usb2CanAbstractionLayer.blocking_receive"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer.blocking_receive" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.interfaces.usb2can.Usb2CanAbstractionLayer.blocking_send">
+<span class="sig-name descname"><span class="pre">blocking_send</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">msg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/usb2can/usb2canabstractionlayer.html#Usb2CanAbstractionLayer.blocking_send"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer.blocking_send" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.interfaces.usb2can.Usb2CanAbstractionLayer.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/usb2can/usb2canabstractionlayer.html#Usb2CanAbstractionLayer.close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer.close" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.interfaces.usb2can.Usb2CanAbstractionLayer.get_library_version">
+<span class="sig-name descname"><span class="pre">get_library_version</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/usb2can/usb2canabstractionlayer.html#Usb2CanAbstractionLayer.get_library_version"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer.get_library_version" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.interfaces.usb2can.Usb2CanAbstractionLayer.get_statistics">
+<span class="sig-name descname"><span class="pre">get_statistics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">CanalStatistics</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/usb2can/usb2canabstractionlayer.html#Usb2CanAbstractionLayer.get_statistics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer.get_statistics" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.interfaces.usb2can.Usb2CanAbstractionLayer.get_status">
+<span class="sig-name descname"><span class="pre">get_status</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">CanalStatus</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/usb2can/usb2canabstractionlayer.html#Usb2CanAbstractionLayer.get_status"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer.get_status" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.interfaces.usb2can.Usb2CanAbstractionLayer.get_vendor_string">
+<span class="sig-name descname"><span class="pre">get_vendor_string</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/usb2can/usb2canabstractionlayer.html#Usb2CanAbstractionLayer.get_vendor_string"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer.get_vendor_string" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.interfaces.usb2can.Usb2CanAbstractionLayer.get_version">
+<span class="sig-name descname"><span class="pre">get_version</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/usb2can/usb2canabstractionlayer.html#Usb2CanAbstractionLayer.get_version"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer.get_version" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.interfaces.usb2can.Usb2CanAbstractionLayer.open">
+<span class="sig-name descname"><span class="pre">open</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">configuration</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flags</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/usb2can/usb2canabstractionlayer.html#Usb2CanAbstractionLayer.open"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer.open" title="Permalink to this definition">¶</a></dt>
+<dd><p>Opens a CAN connection using <cite>CanalOpen()</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>configuration</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – the configuration: “device_id; baudrate”</p></li>
+<li><p><strong>flags</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – the flags to be set</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="../api.html#can.CanError" title="can.CanError"><strong>can.CanError</strong></a> – if any error occurred</p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Valid handle for CANAL API functions on success</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.interfaces.usb2can.Usb2CanAbstractionLayer.receive">
+<span class="sig-name descname"><span class="pre">receive</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">msg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/usb2can/usb2canabstractionlayer.html#Usb2CanAbstractionLayer.receive"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer.receive" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.interfaces.usb2can.Usb2CanAbstractionLayer.send">
+<span class="sig-name descname"><span class="pre">send</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">msg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/usb2can/usb2canabstractionlayer.html#Usb2CanAbstractionLayer.send"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer.send" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="../index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">USB2CAN Interface</a><ul>
+<li><a class="reference internal" href="#overview">OVERVIEW</a></li>
+<li><a class="reference internal" href="#windows-support">WINDOWS SUPPORT</a></li>
+<li><a class="reference internal" href="#windows-install">WINDOWS INSTALL</a></li>
+<li><a class="reference internal" href="#interface-layout">Interface Layout</a></li>
+<li><a class="reference internal" href="#interface-specific-items">Interface Specific Items</a></li>
+<li><a class="reference internal" href="#bus">Bus</a><ul>
+<li><a class="reference internal" href="#can.interfaces.usb2can.Usb2canBus"><code class="docutils literal notranslate"><span class="pre">Usb2canBus</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#internals">Internals</a><ul>
+<li><a class="reference internal" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer"><code class="docutils literal notranslate"><span class="pre">Usb2CanAbstractionLayer</span></code></a><ul>
+<li><a class="reference internal" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer.blocking_receive"><code class="docutils literal notranslate"><span class="pre">Usb2CanAbstractionLayer.blocking_receive()</span></code></a></li>
+<li><a class="reference internal" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer.blocking_send"><code class="docutils literal notranslate"><span class="pre">Usb2CanAbstractionLayer.blocking_send()</span></code></a></li>
+<li><a class="reference internal" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer.close"><code class="docutils literal notranslate"><span class="pre">Usb2CanAbstractionLayer.close()</span></code></a></li>
+<li><a class="reference internal" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer.get_library_version"><code class="docutils literal notranslate"><span class="pre">Usb2CanAbstractionLayer.get_library_version()</span></code></a></li>
+<li><a class="reference internal" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer.get_statistics"><code class="docutils literal notranslate"><span class="pre">Usb2CanAbstractionLayer.get_statistics()</span></code></a></li>
+<li><a class="reference internal" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer.get_status"><code class="docutils literal notranslate"><span class="pre">Usb2CanAbstractionLayer.get_status()</span></code></a></li>
+<li><a class="reference internal" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer.get_vendor_string"><code class="docutils literal notranslate"><span class="pre">Usb2CanAbstractionLayer.get_vendor_string()</span></code></a></li>
+<li><a class="reference internal" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer.get_version"><code class="docutils literal notranslate"><span class="pre">Usb2CanAbstractionLayer.get_version()</span></code></a></li>
+<li><a class="reference internal" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer.open"><code class="docutils literal notranslate"><span class="pre">Usb2CanAbstractionLayer.open()</span></code></a></li>
+<li><a class="reference internal" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer.receive"><code class="docutils literal notranslate"><span class="pre">Usb2CanAbstractionLayer.receive()</span></code></a></li>
+<li><a class="reference internal" href="#can.interfaces.usb2can.Usb2CanAbstractionLayer.send"><code class="docutils literal notranslate"><span class="pre">Usb2CanAbstractionLayer.send()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="pcan.html"
+                          title="previous chapter">PCAN Basic API</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="nican.html"
+                          title="next chapter">NI-CAN</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/interfaces/usb2can.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="nican.html" title="NI-CAN"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="pcan.html" title="PCAN Basic API"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../interfaces.html" >CAN Interface Modules</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">USB2CAN Interface</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

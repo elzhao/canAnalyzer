@@ -1,0 +1,944 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Listeners &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Asyncio support" href="asyncio.html" />
+    <link rel="prev" title="Message" href="message.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="asyncio.html" title="Asyncio support"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="message.html" title="Message"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="api.html" accesskey="U">Library API</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Listeners</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="listeners">
+<h1>Listeners<a class="headerlink" href="#listeners" title="Permalink to this heading">¶</a></h1>
+<section id="listener">
+<h2>Listener<a class="headerlink" href="#listener" title="Permalink to this heading">¶</a></h2>
+<p>The Listener class is an “abstract” base class for any objects which wish to
+register to receive notifications of new messages on the bus. A Listener can
+be used in two ways; the default is to <strong>call</strong> the Listener with a new
+message, or by calling the method <strong>on_message_received</strong>.</p>
+<p>Listeners are registered with <a class="reference internal" href="api.html#notifier"><span class="std std-ref">Notifier</span></a> object(s) which ensure they are
+notified whenever a new message is received.</p>
+<p>Subclasses of Listener that do not override <strong>on_message_received</strong> will cause
+<a class="reference external" href="https://docs.python.org/3/library/exceptions.html#NotImplementedError" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">NotImplementedError</span></code></a> to be thrown when a message is received on
+the CAN bus.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.Listener">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">Listener</span></span><a class="reference internal" href="_modules/can/listener.html#Listener"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.Listener" title="Permalink to this definition">¶</a></dt>
+<dd><p>The basic listener that can be called directly to handle some
+CAN message:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">listener</span> <span class="o">=</span> <span class="n">SomeListener</span><span class="p">()</span>
+<span class="n">msg</span> <span class="o">=</span> <span class="n">my_bus</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
+
+<span class="c1"># now either call</span>
+<span class="n">listener</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<span class="c1"># or</span>
+<span class="n">listener</span><span class="o">.</span><span class="n">on_message_received</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+<span class="c1"># Important to ensure all outputs are flushed</span>
+<span class="n">listener</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="can.Listener.on_error">
+<span class="sig-name descname"><span class="pre">on_error</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">exc</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/listener.html#Listener.on_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.Listener.on_error" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method is called to handle any exception in the receive thread.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>exc</strong> (<a class="reference external" href="https://docs.python.org/3/library/exceptions.html#Exception" title="(in Python v3.11)"><em>Exception</em></a>) – The exception causing the thread to stop</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.Listener.on_message_received">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">on_message_received</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/listener.html#Listener.on_message_received"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.Listener.on_message_received" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method is called to handle the given message.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>msg</strong> (<a class="reference internal" href="message.html#can.Message" title="can.Message"><em>can.Message</em></a>) – the delivered message</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.Listener.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/listener.html#Listener.stop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.Listener.stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stop handling new messages, carry out any final tasks to ensure
+data is persisted and cleanup any open resources.</p>
+<p>Concrete implementations override.</p>
+</dd></dl>
+
+</dd></dl>
+
+<p>There are some listeners that already ship together with <cite>python-can</cite>
+and are listed below.
+Some of them allow messages to be written to files, and the corresponding file
+readers are also documented here.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Please note that writing and the reading a message might not always yield a
+completely unchanged message again, since some properties are not (yet)
+supported by some file formats.</p>
+</div>
+</section>
+<section id="bufferedreader">
+<h2>BufferedReader<a class="headerlink" href="#bufferedreader" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.BufferedReader">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">BufferedReader</span></span><a class="reference internal" href="_modules/can/listener.html#BufferedReader"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.BufferedReader" title="Permalink to this definition">¶</a></dt>
+<dd><p>A BufferedReader is a subclass of <a class="reference internal" href="#can.Listener" title="can.Listener"><code class="xref py py-class docutils literal notranslate"><span class="pre">Listener</span></code></a> which implements a
+<strong>message buffer</strong>: that is, when the <a class="reference internal" href="#can.BufferedReader" title="can.BufferedReader"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.BufferedReader</span></code></a> instance is
+notified of a new message it pushes it into a queue of messages waiting to
+be serviced. The messages can then be fetched with
+<a class="reference internal" href="#can.BufferedReader.get_message" title="can.BufferedReader.get_message"><code class="xref py py-meth docutils literal notranslate"><span class="pre">get_message()</span></code></a>.</p>
+<p>Putting in messages after <a class="reference internal" href="#can.BufferedReader.stop" title="can.BufferedReader.stop"><code class="xref py py-meth docutils literal notranslate"><span class="pre">stop()</span></code></a> has be called will raise
+an exception, see <a class="reference internal" href="#can.BufferedReader.on_message_received" title="can.BufferedReader.on_message_received"><code class="xref py py-meth docutils literal notranslate"><span class="pre">on_message_received()</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Attr bool is_stopped<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">True</span></code> iff the reader has been stopped</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="can.BufferedReader.get_message">
+<span class="sig-name descname"><span class="pre">get_message</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/listener.html#BufferedReader.get_message"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.BufferedReader.get_message" title="Permalink to this definition">¶</a></dt>
+<dd><p>Attempts to retrieve the latest message received by the instance. If no message is
+available it blocks for given timeout or until a message is received, or else
+returns None (whichever is shorter). This method does not block after
+<a class="reference internal" href="#can.BufferedReader.stop" title="can.BufferedReader.stop"><code class="xref py py-meth docutils literal notranslate"><span class="pre">can.BufferedReader.stop()</span></code></a> has been called.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>timeout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – The number of seconds to wait for a new message.</p>
+</dd>
+<dt class="field-even">Rytpe<span class="colon">:</span></dt>
+<dd class="field-even"><p>can.Message or None</p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>the message if there is one, or None if there is not.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.BufferedReader.on_message_received">
+<span class="sig-name descname"><span class="pre">on_message_received</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/listener.html#BufferedReader.on_message_received"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.BufferedReader.on_message_received" title="Permalink to this definition">¶</a></dt>
+<dd><p>Append a message to the buffer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p>BufferError
+if the reader has already been stopped</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.BufferedReader.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/listener.html#BufferedReader.stop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.BufferedReader.stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Prohibits any more additions to this reader.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="can.AsyncBufferedReader">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">AsyncBufferedReader</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/listener.html#AsyncBufferedReader"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.AsyncBufferedReader" title="Permalink to this definition">¶</a></dt>
+<dd><p>A message buffer for use with <a class="reference external" href="https://docs.python.org/3/library/asyncio.html#module-asyncio" title="(in Python v3.11)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">asyncio</span></code></a>.</p>
+<p>See <a class="reference internal" href="asyncio.html#asyncio"><span class="std std-ref">Asyncio support</span></a> for how to use with <a class="reference internal" href="api.html#can.Notifier" title="can.Notifier"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.Notifier</span></code></a>.</p>
+<p>Can also be used as an asynchronous iterator:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">reader</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="can.AsyncBufferedReader.get_message">
+<span class="sig-name descname"><span class="pre">get_message</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/listener.html#AsyncBufferedReader.get_message"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.AsyncBufferedReader.get_message" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieve the latest message when awaited for:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">msg</span> <span class="o">=</span> <span class="k">await</span> <span class="n">reader</span><span class="o">.</span><span class="n">get_message</span><span class="p">()</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="message.html#can.Message" title="can.Message">can.Message</a></p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The CAN message.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.AsyncBufferedReader.on_message_received">
+<span class="sig-name descname"><span class="pre">on_message_received</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/listener.html#AsyncBufferedReader.on_message_received"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.AsyncBufferedReader.on_message_received" title="Permalink to this definition">¶</a></dt>
+<dd><p>Append a message to the buffer.</p>
+<p>Must only be called inside an event loop!</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="logger">
+<h2>Logger<a class="headerlink" href="#logger" title="Permalink to this heading">¶</a></h2>
+<p>The <a class="reference internal" href="#can.Logger" title="can.Logger"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.Logger</span></code></a> uses the following <a class="reference internal" href="#can.Listener" title="can.Listener"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.Listener</span></code></a> types to
+create log files with different file types of the messages received.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.Logger">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">Logger</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/logger.html#Logger"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.Logger" title="Permalink to this definition">¶</a></dt>
+<dd><p>Logs CAN messages to a file.</p>
+<dl class="simple">
+<dt>The format is determined from the file format which can be one of:</dt><dd><ul class="simple">
+<li><p>.asc: <a class="reference internal" href="#can.ASCWriter" title="can.ASCWriter"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.ASCWriter</span></code></a></p></li>
+<li><p>.blf <a class="reference internal" href="#can.BLFWriter" title="can.BLFWriter"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.BLFWriter</span></code></a></p></li>
+<li><p>.csv: <a class="reference internal" href="#can.CSVWriter" title="can.CSVWriter"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.CSVWriter</span></code></a></p></li>
+<li><p>.db: <a class="reference internal" href="#can.SqliteWriter" title="can.SqliteWriter"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.SqliteWriter</span></code></a></p></li>
+<li><p>.log <a class="reference internal" href="#can.CanutilsLogWriter" title="can.CanutilsLogWriter"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.CanutilsLogWriter</span></code></a></p></li>
+<li><p>other: <a class="reference internal" href="#can.Printer" title="can.Printer"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.Printer</span></code></a></p></li>
+</ul>
+</dd>
+</dl>
+<p>The log files may be incomplete until <cite>stop()</cite> is called due to buffering.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This class itself is just a dispatcher, and any positional an keyword
+arguments are passed on to the returned instance.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>file</strong> – a path-like object to open a file, a file-like object
+to be used as a file or <cite>None</cite> to not use a file at all</p></li>
+<li><p><strong>mode</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – the mode that should be used to open the file, see
+<a class="reference external" href="https://docs.python.org/3/library/functions.html#open" title="(in Python v3.11)"><code class="xref py py-func docutils literal notranslate"><span class="pre">open()</span></code></a>, ignored if <em>file</em> is <cite>None</cite></p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="printer">
+<h2>Printer<a class="headerlink" href="#printer" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.Printer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">Printer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/printer.html#Printer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.Printer" title="Permalink to this definition">¶</a></dt>
+<dd><p>The Printer class is a subclass of <a class="reference internal" href="#can.Listener" title="can.Listener"><code class="xref py py-class docutils literal notranslate"><span class="pre">Listener</span></code></a> which simply prints
+any messages it receives to the terminal (stdout). A message is turned into a
+string using <a class="reference internal" href="message.html#can.Message.__str__" title="can.Message.__str__"><code class="xref py py-meth docutils literal notranslate"><span class="pre">__str__()</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Attr bool write_to_file<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>True</cite> iff this instance prints to a file instead of
+standard out</p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>file</strong> – an optional path-like object or as file-like object to “print”
+to instead of writing to standard out (stdout)
+If this is a file-like object, is has to opened in text
+write mode, not binary write mode.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="can.Printer.on_message_received">
+<span class="sig-name descname"><span class="pre">on_message_received</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/printer.html#Printer.on_message_received"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.Printer.on_message_received" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method is called to handle the given message.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>msg</strong> (<a class="reference internal" href="message.html#can.Message" title="can.Message"><em>can.Message</em></a>) – the delivered message</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="csvwriter">
+<h2>CSVWriter<a class="headerlink" href="#csvwriter" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.CSVWriter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">CSVWriter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">append</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/csv.html#CSVWriter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.CSVWriter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Writes a comma separated text file with a line for
+each message. Includes a header line.</p>
+<p>The columns are as follows:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>name of column</p></th>
+<th class="head"><p>format description</p></th>
+<th class="head"><p>example</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>timestamp</p></td>
+<td><p>decimal float</p></td>
+<td><p>1483389946.197</p></td>
+</tr>
+<tr class="row-odd"><td><p>arbitration_id</p></td>
+<td><p>hex</p></td>
+<td><p>0x00dadada</p></td>
+</tr>
+<tr class="row-even"><td><p>extended</p></td>
+<td><p>1 == True, 0 == False</p></td>
+<td><p>1</p></td>
+</tr>
+<tr class="row-odd"><td><p>remote</p></td>
+<td><p>1 == True, 0 == False</p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-even"><td><p>error</p></td>
+<td><p>1 == True, 0 == False</p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-odd"><td><p>dlc</p></td>
+<td><p>int</p></td>
+<td><p>6</p></td>
+</tr>
+<tr class="row-even"><td><p>data</p></td>
+<td><p>base64 encoded</p></td>
+<td><p>WzQyLCA5XQ==</p></td>
+</tr>
+</tbody>
+</table>
+<p>Each line is terminated with a platform specific line separator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>file</strong> – a path-like object or a file-like object to write to.
+If this is a file-like object, is has to open in text
+write mode, not binary write mode.</p></li>
+<li><p><strong>append</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – if set to <cite>True</cite> messages are appended to
+the file and no header line is written, else
+the file is truncated and starts with a newly
+written header line</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="can.CSVWriter.on_message_received">
+<span class="sig-name descname"><span class="pre">on_message_received</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/csv.html#CSVWriter.on_message_received"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.CSVWriter.on_message_received" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method is called to handle the given message.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>msg</strong> (<a class="reference internal" href="message.html#can.Message" title="can.Message"><em>can.Message</em></a>) – the delivered message</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="can.CSVReader">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">CSVReader</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/csv.html#CSVReader"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.CSVReader" title="Permalink to this definition">¶</a></dt>
+<dd><p>Iterator over CAN messages from a .csv file that was
+generated by <a class="reference internal" href="#can.CSVWriter" title="can.CSVWriter"><code class="xref py py-class docutils literal notranslate"><span class="pre">CSVWriter</span></code></a> or that uses the same
+format as described there. Assumes that there is a header
+and thus skips the first line.</p>
+<p>Any line separator is accepted.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>file</strong> – a path-like object or as file-like object to read from
+If this is a file-like object, is has to opened in text
+read mode, not binary read mode.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="sqlitewriter">
+<h2>SqliteWriter<a class="headerlink" href="#sqlitewriter" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.SqliteWriter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">SqliteWriter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">table_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'messages'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/sqlite.html#SqliteWriter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.SqliteWriter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Logs received CAN data to a simple SQL database.</p>
+<p>The sqlite database may already exist, otherwise it will
+be created when the first message arrives.</p>
+<p>Messages are internally buffered and written to the SQL file in a background
+thread. Ensures that all messages that are added before calling <a class="reference internal" href="#can.SqliteWriter.stop" title="can.SqliteWriter.stop"><code class="xref py py-meth docutils literal notranslate"><span class="pre">stop()</span></code></a>
+are actually written to the database after that call returns. Thus, calling
+<a class="reference internal" href="#can.SqliteWriter.stop" title="can.SqliteWriter.stop"><code class="xref py py-meth docutils literal notranslate"><span class="pre">stop()</span></code></a> may take a while.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Attr str table_name<span class="colon">:</span></dt>
+<dd class="field-odd"><p>the name of the database table used for storing the messages</p>
+</dd>
+<dt class="field-even">Attr int num_frames<span class="colon">:</span></dt>
+<dd class="field-even"><p>the number of frames actually written to the database, this
+excludes messages that are still buffered</p>
+</dd>
+<dt class="field-odd">Attr float last_write<span class="colon">:</span></dt>
+<dd class="field-odd"><p>the last time a message war actually written to the database,
+as given by <code class="docutils literal notranslate"><span class="pre">time.time()</span></code></p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>When the listener’s <a class="reference internal" href="#can.SqliteWriter.stop" title="can.SqliteWriter.stop"><code class="xref py py-meth docutils literal notranslate"><span class="pre">stop()</span></code></a> method is called the
+thread writing to the database will continue to receive and internally
+buffer messages if they continue to arrive before the
+<a class="reference internal" href="#can.SqliteWriter.GET_MESSAGE_TIMEOUT" title="can.SqliteWriter.GET_MESSAGE_TIMEOUT"><code class="xref py py-attr docutils literal notranslate"><span class="pre">GET_MESSAGE_TIMEOUT</span></code></a>.</p>
+<p>If the <a class="reference internal" href="#can.SqliteWriter.GET_MESSAGE_TIMEOUT" title="can.SqliteWriter.GET_MESSAGE_TIMEOUT"><code class="xref py py-attr docutils literal notranslate"><span class="pre">GET_MESSAGE_TIMEOUT</span></code></a> expires before a message
+is received, the internal buffer is written out to the database file.</p>
+<p>However if the bus is still saturated with messages, the Listener
+will continue receiving until the <a class="reference internal" href="#can.SqliteWriter.MAX_TIME_BETWEEN_WRITES" title="can.SqliteWriter.MAX_TIME_BETWEEN_WRITES"><code class="xref py py-attr docutils literal notranslate"><span class="pre">MAX_TIME_BETWEEN_WRITES</span></code></a>
+timeout is reached or more than
+<a class="reference internal" href="#can.SqliteWriter.MAX_BUFFER_SIZE_BEFORE_WRITES" title="can.SqliteWriter.MAX_BUFFER_SIZE_BEFORE_WRITES"><code class="xref py py-attr docutils literal notranslate"><span class="pre">MAX_BUFFER_SIZE_BEFORE_WRITES</span></code></a> messages are buffered.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The database schema is given in the documentation of the loggers.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>file</strong> – a <cite>str</cite> or since Python 3.7 a path like object that points
+to the database file to use</p></li>
+<li><p><strong>table_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – the name of the table to store messages in</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>In contrary to all other readers/writers the Sqlite handlers
+do not accept file-like objects as the <cite>file</cite> parameter.</p>
+</div>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="can.SqliteWriter.GET_MESSAGE_TIMEOUT">
+<span class="sig-name descname"><span class="pre">GET_MESSAGE_TIMEOUT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.25</span></em><a class="headerlink" href="#can.SqliteWriter.GET_MESSAGE_TIMEOUT" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of seconds to wait for messages from internal queue</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="can.SqliteWriter.MAX_BUFFER_SIZE_BEFORE_WRITES">
+<span class="sig-name descname"><span class="pre">MAX_BUFFER_SIZE_BEFORE_WRITES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">500</span></em><a class="headerlink" href="#can.SqliteWriter.MAX_BUFFER_SIZE_BEFORE_WRITES" title="Permalink to this definition">¶</a></dt>
+<dd><p>Maximum number of messages to buffer before writing to the database</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="can.SqliteWriter.MAX_TIME_BETWEEN_WRITES">
+<span class="sig-name descname"><span class="pre">MAX_TIME_BETWEEN_WRITES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5.0</span></em><a class="headerlink" href="#can.SqliteWriter.MAX_TIME_BETWEEN_WRITES" title="Permalink to this definition">¶</a></dt>
+<dd><p>Maximum number of seconds to wait between writes to the database</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.SqliteWriter.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/sqlite.html#SqliteWriter.stop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.SqliteWriter.stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stops the reader an writes all remaining messages to the database. Thus, this
+might take a while and block.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="can.SqliteReader">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">SqliteReader</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">table_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'messages'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/sqlite.html#SqliteReader"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.SqliteReader" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reads recorded CAN messages from a simple SQL database.</p>
+<p>This class can be iterated over or used to fetch all messages in the
+database with <a class="reference internal" href="#can.SqliteReader.read_all" title="can.SqliteReader.read_all"><code class="xref py py-meth docutils literal notranslate"><span class="pre">read_all()</span></code></a>.</p>
+<p>Calling <code class="xref py py-func docutils literal notranslate"><span class="pre">len()</span></code> on this object might not run in constant time.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Attr str table_name<span class="colon">:</span></dt>
+<dd class="field-odd"><p>the name of the database table used for storing the messages</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The database schema is given in the documentation of the loggers.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>file</strong> – a <cite>str</cite> or since Python 3.7 a path like object that points
+to the database file to use</p></li>
+<li><p><strong>table_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – the name of the table to look for the messages</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>In contrary to all other readers/writers the Sqlite handlers
+do not accept file-like objects as the <cite>file</cite> parameter.
+It also runs in <code class="docutils literal notranslate"><span class="pre">append=True</span></code> mode all the time.</p>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="can.SqliteReader.read_all">
+<span class="sig-name descname"><span class="pre">read_all</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/sqlite.html#SqliteReader.read_all"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.SqliteReader.read_all" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fetches all messages in the database.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Generator[<a class="reference internal" href="message.html#can.Message" title="can.Message">can.Message</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.SqliteReader.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/sqlite.html#SqliteReader.stop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.SqliteReader.stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Closes the connection to the database.</p>
+</dd></dl>
+
+</dd></dl>
+
+<section id="database-table-format">
+<h3>Database table format<a class="headerlink" href="#database-table-format" title="Permalink to this heading">¶</a></h3>
+<p>The messages are written to the table <code class="docutils literal notranslate"><span class="pre">messages</span></code> in the sqlite database
+by default. The table is created if it does not already exist.</p>
+<p>The entries are as follows:</p>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Name</p></td>
+<td><p>Data type</p></td>
+<td><p>Note</p></td>
+</tr>
+<tr class="row-even"><td><p>ts</p></td>
+<td><p>REAL</p></td>
+<td><p>The timestamp of the message</p></td>
+</tr>
+<tr class="row-odd"><td><p>arbitration_id</p></td>
+<td><p>INTEGER</p></td>
+<td><p>The arbitration id, might use the extended format</p></td>
+</tr>
+<tr class="row-even"><td><p>extended</p></td>
+<td><p>INTEGER</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code> if the arbitration id uses the extended format, else <code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>remote</p></td>
+<td><p>INTEGER</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code> if the message is a remote frame, else <code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>error</p></td>
+<td><p>INTEGER</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code> if the message is an error frame, else <code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>dlc</p></td>
+<td><p>INTEGER</p></td>
+<td><p>The data length code (DLC)</p></td>
+</tr>
+<tr class="row-even"><td><p>data</p></td>
+<td><p>BLOB</p></td>
+<td><p>The content of the message</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="asc-asc-logging-format">
+<h2>ASC (.asc Logging format)<a class="headerlink" href="#asc-asc-logging-format" title="Permalink to this heading">¶</a></h2>
+<p>ASCWriter logs CAN data to an ASCII log file compatible with other CAN tools such as
+Vector CANalyzer/CANoe and other.
+Since no official specification exists for the format, it has been reverse-
+engineered from existing log files. One description of the format can be found <a class="reference external" href="http://zone.ni.com/reference/en-XX/help/370859J-01/dlgcanconverter/dlgcanconverter/canconverter_ascii_logfiles/">here</a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Channels will be converted to integers.</p>
+</div>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.ASCWriter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">ASCWriter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/asc.html#ASCWriter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.ASCWriter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Logs CAN data to an ASCII log file (.asc).</p>
+<p>The measurement starts with the timestamp of the first registered message.
+If a message has a timestamp smaller than the previous one or None,
+it gets assigned the timestamp that was written for the last message.
+It the first message does not have a timestamp, it is set to zero.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>file</strong> – a path-like object or as file-like object to write to
+If this is a file-like object, is has to opened in text
+write mode, not binary write mode.</p></li>
+<li><p><strong>channel</strong> – a default channel to use when the message does not
+have a channel set</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="can.ASCWriter.log_event">
+<span class="sig-name descname"><span class="pre">log_event</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/asc.html#ASCWriter.log_event"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.ASCWriter.log_event" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add a message to the log file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>message</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – an arbitrary message</p></li>
+<li><p><strong>timestamp</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – the absolute timestamp of the event</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.ASCWriter.on_message_received">
+<span class="sig-name descname"><span class="pre">on_message_received</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/asc.html#ASCWriter.on_message_received"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.ASCWriter.on_message_received" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method is called to handle the given message.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>msg</strong> (<a class="reference internal" href="message.html#can.Message" title="can.Message"><em>can.Message</em></a>) – the delivered message</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.ASCWriter.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/asc.html#ASCWriter.stop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.ASCWriter.stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stop handling new messages, carry out any final tasks to ensure
+data is persisted and cleanup any open resources.</p>
+<p>Concrete implementations override.</p>
+</dd></dl>
+
+</dd></dl>
+
+<p>ASCReader reads CAN data from ASCII log files .asc,
+as further references can-utils can be used:
+<a class="reference external" href="https://github.com/linux-can/can-utils/blob/master/asc2log.c">asc2log</a>,
+<a class="reference external" href="https://github.com/linux-can/can-utils/blob/master/log2asc.c">log2asc</a>.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.ASCReader">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">ASCReader</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/asc.html#ASCReader"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.ASCReader" title="Permalink to this definition">¶</a></dt>
+<dd><p>Iterator of CAN messages from a ASC logging file. Meta data (comments,
+bus statistics, J1939 Transport Protocol messages) is ignored.</p>
+<p>TODO: turn relative timestamps back to absolute form</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>file</strong> – a path-like object or as file-like object to read from
+If this is a file-like object, is has to opened in text
+read mode, not binary read mode.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="log-log-can-utils-logging-format">
+<h2>Log (.log can-utils Logging format)<a class="headerlink" href="#log-log-can-utils-logging-format" title="Permalink to this heading">¶</a></h2>
+<p>CanutilsLogWriter logs CAN data to an ASCII log file compatible with <cite>can-utils &lt;https://github.com/linux-can/can-utils&gt;</cite>
+As specification following references can-utils can be used:
+<a class="reference external" href="https://github.com/linux-can/can-utils/blob/master/asc2log.c">asc2log</a>,
+<a class="reference external" href="https://github.com/linux-can/can-utils/blob/master/log2asc.c">log2asc</a>.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.CanutilsLogWriter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">CanutilsLogWriter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'vcan0'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">append</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/canutils.html#CanutilsLogWriter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.CanutilsLogWriter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Logs CAN data to an ASCII log file (.log).
+This class is is compatible with “candump -L”.</p>
+<p>If a message has a timestamp smaller than the previous one (or 0 or None),
+it gets assigned the timestamp that was written for the last message.
+It the first message does not have a timestamp, it is set to zero.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>file</strong> – a path-like object or as file-like object to write to
+If this is a file-like object, is has to opened in text
+write mode, not binary write mode.</p></li>
+<li><p><strong>channel</strong> – a default channel to use when the message does not
+have a channel set</p></li>
+<li><p><strong>append</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – if set to <cite>True</cite> messages are appended to
+the file, else the file is truncated</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="can.CanutilsLogWriter.on_message_received">
+<span class="sig-name descname"><span class="pre">on_message_received</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/canutils.html#CanutilsLogWriter.on_message_received"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.CanutilsLogWriter.on_message_received" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method is called to handle the given message.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>msg</strong> (<a class="reference internal" href="message.html#can.Message" title="can.Message"><em>can.Message</em></a>) – the delivered message</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<p><strong>CanutilsLogReader</strong> reads CAN data from ASCII log files .log</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.CanutilsLogReader">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">CanutilsLogReader</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/canutils.html#CanutilsLogReader"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.CanutilsLogReader" title="Permalink to this definition">¶</a></dt>
+<dd><p>Iterator over CAN messages from a .log Logging File (candump -L).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>.log-format looks for example like this:</p>
+<p><code class="docutils literal notranslate"><span class="pre">(0.0)</span> <span class="pre">vcan0</span> <span class="pre">001#8d00100100820100</span></code></p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>file</strong> – a path-like object or as file-like object to read from
+If this is a file-like object, is has to opened in text
+read mode, not binary read mode.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="blf-binary-logging-format">
+<h2>BLF (Binary Logging Format)<a class="headerlink" href="#blf-binary-logging-format" title="Permalink to this heading">¶</a></h2>
+<p>Implements support for BLF (Binary Logging Format) which is a proprietary
+CAN log format from Vector Informatik GmbH.</p>
+<p>The data is stored in a compressed format which makes it very compact.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Channels will be converted to integers.</p>
+</div>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.BLFWriter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">BLFWriter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/blf.html#BLFWriter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.BLFWriter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Logs CAN data to a Binary Logging File compatible with Vector’s tools.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>file</strong> – a path-like object or as file-like object to write to
+If this is a file-like object, is has to opened in binary
+write mode, not text write mode.</p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="can.BLFWriter.COMPRESSION_LEVEL">
+<span class="sig-name descname"><span class="pre">COMPRESSION_LEVEL</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">9</span></em><a class="headerlink" href="#can.BLFWriter.COMPRESSION_LEVEL" title="Permalink to this definition">¶</a></dt>
+<dd><p>ZLIB compression level</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="can.BLFWriter.MAX_CACHE_SIZE">
+<span class="sig-name descname"><span class="pre">MAX_CACHE_SIZE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">131072</span></em><a class="headerlink" href="#can.BLFWriter.MAX_CACHE_SIZE" title="Permalink to this definition">¶</a></dt>
+<dd><p>Max log container size of uncompressed data</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.BLFWriter.log_event">
+<span class="sig-name descname"><span class="pre">log_event</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/blf.html#BLFWriter.log_event"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.BLFWriter.log_event" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add an arbitrary message to the log file as a global marker.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>text</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – The group name of the marker.</p></li>
+<li><p><strong>timestamp</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – Absolute timestamp in Unix timestamp format. If not given, the
+marker will be placed along the last message.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.BLFWriter.on_message_received">
+<span class="sig-name descname"><span class="pre">on_message_received</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/blf.html#BLFWriter.on_message_received"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.BLFWriter.on_message_received" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method is called to handle the given message.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>msg</strong> (<a class="reference internal" href="message.html#can.Message" title="can.Message"><em>can.Message</em></a>) – the delivered message</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.BLFWriter.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/blf.html#BLFWriter.stop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.BLFWriter.stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stops logging and closes the file.</p>
+</dd></dl>
+
+</dd></dl>
+
+<p>The following class can be used to read messages from BLF file:</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.BLFReader">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">BLFReader</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/io/blf.html#BLFReader"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.BLFReader" title="Permalink to this definition">¶</a></dt>
+<dd><p>Iterator of CAN messages from a Binary Logging File.</p>
+<p>Only CAN messages and error frames are supported. Other object types are
+silently ignored.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>file</strong> – a path-like object or as file-like object to read from
+If this is a file-like object, is has to opened in binary
+read mode, not text read mode.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Listeners</a><ul>
+<li><a class="reference internal" href="#listener">Listener</a><ul>
+<li><a class="reference internal" href="#can.Listener"><code class="docutils literal notranslate"><span class="pre">Listener</span></code></a><ul>
+<li><a class="reference internal" href="#can.Listener.on_error"><code class="docutils literal notranslate"><span class="pre">Listener.on_error()</span></code></a></li>
+<li><a class="reference internal" href="#can.Listener.on_message_received"><code class="docutils literal notranslate"><span class="pre">Listener.on_message_received()</span></code></a></li>
+<li><a class="reference internal" href="#can.Listener.stop"><code class="docutils literal notranslate"><span class="pre">Listener.stop()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#bufferedreader">BufferedReader</a><ul>
+<li><a class="reference internal" href="#can.BufferedReader"><code class="docutils literal notranslate"><span class="pre">BufferedReader</span></code></a><ul>
+<li><a class="reference internal" href="#can.BufferedReader.get_message"><code class="docutils literal notranslate"><span class="pre">BufferedReader.get_message()</span></code></a></li>
+<li><a class="reference internal" href="#can.BufferedReader.on_message_received"><code class="docutils literal notranslate"><span class="pre">BufferedReader.on_message_received()</span></code></a></li>
+<li><a class="reference internal" href="#can.BufferedReader.stop"><code class="docutils literal notranslate"><span class="pre">BufferedReader.stop()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#can.AsyncBufferedReader"><code class="docutils literal notranslate"><span class="pre">AsyncBufferedReader</span></code></a><ul>
+<li><a class="reference internal" href="#can.AsyncBufferedReader.get_message"><code class="docutils literal notranslate"><span class="pre">AsyncBufferedReader.get_message()</span></code></a></li>
+<li><a class="reference internal" href="#can.AsyncBufferedReader.on_message_received"><code class="docutils literal notranslate"><span class="pre">AsyncBufferedReader.on_message_received()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#logger">Logger</a><ul>
+<li><a class="reference internal" href="#can.Logger"><code class="docutils literal notranslate"><span class="pre">Logger</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#printer">Printer</a><ul>
+<li><a class="reference internal" href="#can.Printer"><code class="docutils literal notranslate"><span class="pre">Printer</span></code></a><ul>
+<li><a class="reference internal" href="#can.Printer.on_message_received"><code class="docutils literal notranslate"><span class="pre">Printer.on_message_received()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#csvwriter">CSVWriter</a><ul>
+<li><a class="reference internal" href="#can.CSVWriter"><code class="docutils literal notranslate"><span class="pre">CSVWriter</span></code></a><ul>
+<li><a class="reference internal" href="#can.CSVWriter.on_message_received"><code class="docutils literal notranslate"><span class="pre">CSVWriter.on_message_received()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#can.CSVReader"><code class="docutils literal notranslate"><span class="pre">CSVReader</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#sqlitewriter">SqliteWriter</a><ul>
+<li><a class="reference internal" href="#can.SqliteWriter"><code class="docutils literal notranslate"><span class="pre">SqliteWriter</span></code></a><ul>
+<li><a class="reference internal" href="#can.SqliteWriter.GET_MESSAGE_TIMEOUT"><code class="docutils literal notranslate"><span class="pre">SqliteWriter.GET_MESSAGE_TIMEOUT</span></code></a></li>
+<li><a class="reference internal" href="#can.SqliteWriter.MAX_BUFFER_SIZE_BEFORE_WRITES"><code class="docutils literal notranslate"><span class="pre">SqliteWriter.MAX_BUFFER_SIZE_BEFORE_WRITES</span></code></a></li>
+<li><a class="reference internal" href="#can.SqliteWriter.MAX_TIME_BETWEEN_WRITES"><code class="docutils literal notranslate"><span class="pre">SqliteWriter.MAX_TIME_BETWEEN_WRITES</span></code></a></li>
+<li><a class="reference internal" href="#can.SqliteWriter.stop"><code class="docutils literal notranslate"><span class="pre">SqliteWriter.stop()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#can.SqliteReader"><code class="docutils literal notranslate"><span class="pre">SqliteReader</span></code></a><ul>
+<li><a class="reference internal" href="#can.SqliteReader.read_all"><code class="docutils literal notranslate"><span class="pre">SqliteReader.read_all()</span></code></a></li>
+<li><a class="reference internal" href="#can.SqliteReader.stop"><code class="docutils literal notranslate"><span class="pre">SqliteReader.stop()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#database-table-format">Database table format</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#asc-asc-logging-format">ASC (.asc Logging format)</a><ul>
+<li><a class="reference internal" href="#can.ASCWriter"><code class="docutils literal notranslate"><span class="pre">ASCWriter</span></code></a><ul>
+<li><a class="reference internal" href="#can.ASCWriter.log_event"><code class="docutils literal notranslate"><span class="pre">ASCWriter.log_event()</span></code></a></li>
+<li><a class="reference internal" href="#can.ASCWriter.on_message_received"><code class="docutils literal notranslate"><span class="pre">ASCWriter.on_message_received()</span></code></a></li>
+<li><a class="reference internal" href="#can.ASCWriter.stop"><code class="docutils literal notranslate"><span class="pre">ASCWriter.stop()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#can.ASCReader"><code class="docutils literal notranslate"><span class="pre">ASCReader</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#log-log-can-utils-logging-format">Log (.log can-utils Logging format)</a><ul>
+<li><a class="reference internal" href="#can.CanutilsLogWriter"><code class="docutils literal notranslate"><span class="pre">CanutilsLogWriter</span></code></a><ul>
+<li><a class="reference internal" href="#can.CanutilsLogWriter.on_message_received"><code class="docutils literal notranslate"><span class="pre">CanutilsLogWriter.on_message_received()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#can.CanutilsLogReader"><code class="docutils literal notranslate"><span class="pre">CanutilsLogReader</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#blf-binary-logging-format">BLF (Binary Logging Format)</a><ul>
+<li><a class="reference internal" href="#can.BLFWriter"><code class="docutils literal notranslate"><span class="pre">BLFWriter</span></code></a><ul>
+<li><a class="reference internal" href="#can.BLFWriter.COMPRESSION_LEVEL"><code class="docutils literal notranslate"><span class="pre">BLFWriter.COMPRESSION_LEVEL</span></code></a></li>
+<li><a class="reference internal" href="#can.BLFWriter.MAX_CACHE_SIZE"><code class="docutils literal notranslate"><span class="pre">BLFWriter.MAX_CACHE_SIZE</span></code></a></li>
+<li><a class="reference internal" href="#can.BLFWriter.log_event"><code class="docutils literal notranslate"><span class="pre">BLFWriter.log_event()</span></code></a></li>
+<li><a class="reference internal" href="#can.BLFWriter.on_message_received"><code class="docutils literal notranslate"><span class="pre">BLFWriter.on_message_received()</span></code></a></li>
+<li><a class="reference internal" href="#can.BLFWriter.stop"><code class="docutils literal notranslate"><span class="pre">BLFWriter.stop()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#can.BLFReader"><code class="docutils literal notranslate"><span class="pre">BLFReader</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="message.html"
+                          title="previous chapter">Message</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="asyncio.html"
+                          title="next chapter">Asyncio support</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/listeners.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="asyncio.html" title="Asyncio support"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="message.html" title="Message"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="api.html" >Library API</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Listeners</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

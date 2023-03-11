@@ -1,0 +1,242 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>can.broadcastmanager &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css" />
+    
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../can.html" accesskey="U">can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.broadcastmanager</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for can.broadcastmanager</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Exposes several methods for transmitting cyclic messages.</span>
+
+<span class="sd">The main entry point to these classes should be through</span>
+<span class="sd">:meth:`can.BusABC.send_periodic`.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">abc</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">threading</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;can.bcm&#39;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="CyclicTask"><a class="viewcode-back" href="../../bcm.html#can.broadcastmanager.CyclicTask">[docs]</a><span class="k">class</span> <span class="nc">CyclicTask</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Abstract Base for all cyclic tasks.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="CyclicTask.stop"><a class="viewcode-back" href="../../bcm.html#can.broadcastmanager.CyclicTask.stop">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Cancel this periodic task.</span>
+
+<span class="sd">        :raises can.CanError:</span>
+<span class="sd">            If stop is called on an already stopped task.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div></div>
+
+
+<div class="viewcode-block" id="CyclicSendTaskABC"><a class="viewcode-back" href="../../bcm.html#can.broadcastmanager.CyclicSendTaskABC">[docs]</a><span class="k">class</span> <span class="nc">CyclicSendTaskABC</span><span class="p">(</span><span class="n">CyclicTask</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Message send task with defined period</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">period</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param can.Message message: The message to be sent periodically.</span>
+<span class="sd">        :param float period: The rate in seconds at which to send the message.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="n">message</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">can_id</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">arbitration_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">arbitration_id</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">arbitration_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">period</span> <span class="o">=</span> <span class="n">period</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">CyclicSendTaskABC</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="LimitedDurationCyclicSendTaskABC"><a class="viewcode-back" href="../../bcm.html#can.broadcastmanager.LimitedDurationCyclicSendTaskABC">[docs]</a><span class="k">class</span> <span class="nc">LimitedDurationCyclicSendTaskABC</span><span class="p">(</span><span class="n">CyclicSendTaskABC</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">period</span><span class="p">,</span> <span class="n">duration</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Message send task with a defined duration and period.</span>
+
+<span class="sd">        :param can.Message message: The message to be sent periodically.</span>
+<span class="sd">        :param float period: The rate in seconds at which to send the message.</span>
+<span class="sd">        :param float duration:</span>
+<span class="sd">            The duration to keep sending this message at given rate.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">LimitedDurationCyclicSendTaskABC</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">period</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">duration</span> <span class="o">=</span> <span class="n">duration</span></div>
+
+
+<div class="viewcode-block" id="RestartableCyclicTaskABC"><a class="viewcode-back" href="../../bcm.html#can.broadcastmanager.RestartableCyclicTaskABC">[docs]</a><span class="k">class</span> <span class="nc">RestartableCyclicTaskABC</span><span class="p">(</span><span class="n">CyclicSendTaskABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Adds support for restarting a stopped cyclic task&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="RestartableCyclicTaskABC.start"><a class="viewcode-back" href="../../bcm.html#can.broadcastmanager.RestartableCyclicTaskABC.start">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Restart a stopped periodic task.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div></div>
+
+
+<div class="viewcode-block" id="ModifiableCyclicTaskABC"><a class="viewcode-back" href="../../bcm.html#can.broadcastmanager.ModifiableCyclicTaskABC">[docs]</a><span class="k">class</span> <span class="nc">ModifiableCyclicTaskABC</span><span class="p">(</span><span class="n">CyclicSendTaskABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Adds support for modifying a periodic message&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ModifiableCyclicTaskABC.modify_data"><a class="viewcode-back" href="../../bcm.html#can.broadcastmanager.ModifiableCyclicTaskABC.modify_data">[docs]</a>    <span class="k">def</span> <span class="nf">modify_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update the contents of this periodically sent message without altering</span>
+<span class="sd">        the timing.</span>
+
+<span class="sd">        :param can.Message message:</span>
+<span class="sd">          The message with the new :attr:`can.Message.data`.</span>
+<span class="sd">          Note: The arbitration ID cannot be changed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="n">message</span></div></div>
+
+
+<div class="viewcode-block" id="MultiRateCyclicSendTaskABC"><a class="viewcode-back" href="../../bcm.html#can.broadcastmanager.MultiRateCyclicSendTaskABC">[docs]</a><span class="k">class</span> <span class="nc">MultiRateCyclicSendTaskABC</span><span class="p">(</span><span class="n">CyclicSendTaskABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A Cyclic send task that supports switches send frequency after a set time.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="n">initial_period</span><span class="p">,</span> <span class="n">subsequent_period</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Transmits a message `count` times at `initial_period` then continues to</span>
+<span class="sd">        transmit message at `subsequent_period`.</span>
+
+<span class="sd">        :param channel: See interface specific documentation.</span>
+<span class="sd">        :param can.Message message:</span>
+<span class="sd">        :param int count:</span>
+<span class="sd">        :param float initial_period:</span>
+<span class="sd">        :param float subsequent_period:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">MultiRateCyclicSendTaskABC</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">subsequent_period</span><span class="p">)</span></div>
+
+
+<span class="k">class</span> <span class="nc">ThreadBasedCyclicSendTask</span><span class="p">(</span><span class="n">ModifiableCyclicTaskABC</span><span class="p">,</span>
+                                <span class="n">LimitedDurationCyclicSendTaskABC</span><span class="p">,</span>
+                                <span class="n">RestartableCyclicTaskABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Fallback cyclic send task using thread.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bus</span><span class="p">,</span> <span class="n">lock</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">period</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">ThreadBasedCyclicSendTask</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">period</span><span class="p">,</span> <span class="n">duration</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bus</span> <span class="o">=</span> <span class="n">bus</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lock</span> <span class="o">=</span> <span class="n">lock</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stopped</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">thread</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">end_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">+</span> <span class="n">duration</span> <span class="k">if</span> <span class="n">duration</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stopped</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stopped</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">thread</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">thread</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Cyclic send task for 0x</span><span class="si">%X</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">arbitration_id</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">thread</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_run</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">thread</span><span class="o">.</span><span class="n">daemon</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">stopped</span><span class="p">:</span>
+            <span class="c1"># Prevent calling bus.send from multiple threads</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">lock</span><span class="p">:</span>
+                <span class="n">started</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                    <span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+                    <span class="k">break</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">end_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">end_time</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="c1"># Compensate for the time it takes to send the message</span>
+            <span class="n">delay</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">period</span> <span class="o">-</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">started</span><span class="p">)</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">delay</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="send_periodic"><a class="viewcode-back" href="../../bcm.html#can.broadcastmanager.send_periodic">[docs]</a><span class="k">def</span> <span class="nf">send_periodic</span><span class="p">(</span><span class="n">bus</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">period</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Send a :class:`~can.Message` every `period` seconds on the given bus.</span>
+
+<span class="sd">    :param can.BusABC bus: A CAN bus which supports sending.</span>
+<span class="sd">    :param can.Message message: Message to send periodically.</span>
+<span class="sd">    :param float period: The minimum time between sending messages.</span>
+<span class="sd">    :return: A started task instance</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;The function `can.send_periodic` is deprecated and will &quot;</span> <span class="o">+</span>
+                  <span class="s2">&quot;be removed in an upcoming version. Please use `can.Bus.send_periodic` instead.&quot;</span><span class="p">,</span> <span class="ne">DeprecationWarning</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">bus</span><span class="o">.</span><span class="n">send_periodic</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">period</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../can.html" >can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.broadcastmanager</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

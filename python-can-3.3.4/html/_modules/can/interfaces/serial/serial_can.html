@@ -1,0 +1,246 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>can.interfaces.serial.serial_can &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css" />
+    
+    <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <script src="../../../../_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../../can.html" accesskey="U">can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.serial.serial_can</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for can.interfaces.serial.serial_can</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">A text based interface. For example use over serial ports like</span>
+<span class="sd">&quot;/dev/ttyS1&quot; or &quot;/dev/ttyUSB0&quot; on Linux machines or &quot;COM1&quot; on Windows.</span>
+<span class="sd">The interface is a simple implementation that has been used for</span>
+<span class="sd">recording CAN traces.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">absolute_import</span><span class="p">,</span> <span class="n">division</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">struct</span>
+
+<span class="kn">from</span> <span class="nn">can</span> <span class="kn">import</span> <span class="n">BusABC</span><span class="p">,</span> <span class="n">Message</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;can.serial&#39;</span><span class="p">)</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">serial</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;You won&#39;t be able to use the serial can backend without &quot;</span>
+                   <span class="s2">&quot;the serial module installed!&quot;</span><span class="p">)</span>
+    <span class="n">serial</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<div class="viewcode-block" id="SerialBus"><a class="viewcode-back" href="../../../../interfaces/serial.html#can.interfaces.serial.serial_can.SerialBus">[docs]</a><span class="k">class</span> <span class="nc">SerialBus</span><span class="p">(</span><span class="n">BusABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Enable basic can communication over a serial device.</span>
+
+<span class="sd">    .. note:: See :meth:`can.interfaces.serial.SerialBus._recv_internal`</span>
+<span class="sd">              for some special semantics.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">baudrate</span><span class="o">=</span><span class="mi">115200</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">rtscts</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param str channel:</span>
+<span class="sd">            The serial device to open. For example &quot;/dev/ttyS1&quot; or</span>
+<span class="sd">            &quot;/dev/ttyUSB0&quot; on Linux or &quot;COM1&quot; on Windows systems.</span>
+
+<span class="sd">        :param int baudrate:</span>
+<span class="sd">            Baud rate of the serial device in bit/s (default 115200).</span>
+
+<span class="sd">            .. warning::</span>
+<span class="sd">                Some serial port implementations don&#39;t care about the baudrate.</span>
+
+<span class="sd">        :param float timeout:</span>
+<span class="sd">            Timeout for the serial device in seconds (default 0.1).</span>
+
+<span class="sd">        :param bool rtscts:</span>
+<span class="sd">            turn hardware handshake (RTS/CTS) on and off</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">channel</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Must specify a serial port.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">channel_info</span> <span class="o">=</span> <span class="s2">&quot;Serial interface: &quot;</span> <span class="o">+</span> <span class="n">channel</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ser</span> <span class="o">=</span> <span class="n">serial</span><span class="o">.</span><span class="n">serial_for_url</span><span class="p">(</span>
+            <span class="n">channel</span><span class="p">,</span> <span class="n">baudrate</span><span class="o">=</span><span class="n">baudrate</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span> <span class="n">rtscts</span><span class="o">=</span><span class="n">rtscts</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">SerialBus</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">channel</span><span class="o">=</span><span class="n">channel</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Close the serial interface.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ser</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Send a message over the serial device.</span>
+
+<span class="sd">        :param can.Message msg:</span>
+<span class="sd">            Message to send.</span>
+
+<span class="sd">            .. note:: Flags like ``extended_id``, ``is_remote_frame`` and</span>
+<span class="sd">                      ``is_error_frame`` will be ignored.</span>
+
+<span class="sd">            .. note:: If the timestamp is a float value it will be converted</span>
+<span class="sd">                      to an integer.</span>
+
+<span class="sd">        :param timeout:</span>
+<span class="sd">            This parameter will be ignored. The timeout value of the channel is</span>
+<span class="sd">            used instead.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">timestamp</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s1">&#39;&lt;I&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">struct</span><span class="o">.</span><span class="n">error</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Timestamp is out of range&#39;</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">a_id</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s1">&#39;&lt;I&#39;</span><span class="p">,</span> <span class="n">msg</span><span class="o">.</span><span class="n">arbitration_id</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">struct</span><span class="o">.</span><span class="n">error</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Arbitration Id is out of range&#39;</span><span class="p">)</span>
+        <span class="n">byte_msg</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">()</span>
+        <span class="n">byte_msg</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mh">0xAA</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">):</span>
+            <span class="n">byte_msg</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">timestamp</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">byte_msg</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">dlc</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">):</span>
+            <span class="n">byte_msg</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">a_id</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">msg</span><span class="o">.</span><span class="n">dlc</span><span class="p">):</span>
+            <span class="n">byte_msg</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">byte_msg</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mh">0xBB</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ser</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">byte_msg</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_recv_internal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Read a message from the serial device.</span>
+
+<span class="sd">        :param timeout:</span>
+
+<span class="sd">            .. warning::</span>
+<span class="sd">                This parameter will be ignored. The timeout value of the channel is used.</span>
+
+<span class="sd">        :returns:</span>
+<span class="sd">            Received message and False (because not filtering as taken place).</span>
+
+<span class="sd">            .. warning::</span>
+<span class="sd">                Flags like is_extended_id, is_remote_frame and is_error_frame</span>
+<span class="sd">                will not be set over this function, the flags in the return</span>
+<span class="sd">                message are the default values.</span>
+
+<span class="sd">        :rtype:</span>
+<span class="sd">            can.Message, bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># ser.read can return an empty string</span>
+            <span class="c1"># or raise a SerialException</span>
+            <span class="n">rx_byte</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ser</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="k">except</span> <span class="n">serial</span><span class="o">.</span><span class="n">SerialException</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="n">rx_byte</span> <span class="ow">and</span> <span class="nb">ord</span><span class="p">(</span><span class="n">rx_byte</span><span class="p">)</span> <span class="o">==</span> <span class="mh">0xAA</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ser</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+            <span class="n">timestamp</span> <span class="o">=</span> <span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="s1">&#39;&lt;I&#39;</span><span class="p">,</span> <span class="n">s</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">dlc</span> <span class="o">=</span> <span class="nb">ord</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ser</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+
+            <span class="n">s</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ser</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+            <span class="n">arb_id</span> <span class="o">=</span> <span class="p">(</span><span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="s1">&#39;&lt;I&#39;</span><span class="p">,</span> <span class="n">s</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ser</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">dlc</span><span class="p">)</span>
+
+            <span class="n">rxd_byte</span> <span class="o">=</span> <span class="nb">ord</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ser</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+            <span class="k">if</span> <span class="n">rxd_byte</span> <span class="o">==</span> <span class="mh">0xBB</span><span class="p">:</span>
+                <span class="c1"># received message data okay</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="n">Message</span><span class="p">(</span><span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span><span class="o">/</span><span class="mi">1000</span><span class="p">,</span>
+                              <span class="n">arbitration_id</span><span class="o">=</span><span class="n">arb_id</span><span class="p">,</span>
+                              <span class="n">dlc</span><span class="o">=</span><span class="n">dlc</span><span class="p">,</span>
+                              <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">msg</span><span class="p">,</span> <span class="kc">False</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">fileno</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ser</span><span class="p">,</span> <span class="s1">&#39;fileno&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ser</span><span class="o">.</span><span class="n">fileno</span><span class="p">()</span>
+        <span class="c1"># Return an invalid file descriptor on Windows</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../../can.html" >can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.serial.serial_can</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

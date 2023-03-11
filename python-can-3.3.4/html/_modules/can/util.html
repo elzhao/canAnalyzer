@@ -1,0 +1,356 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>can.util &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css" />
+    
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../can.html" accesskey="U">can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.util</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for can.util</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Utilities and configuration file parsing.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">absolute_import</span><span class="p">,</span> <span class="n">print_function</span>
+
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">os.path</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">platform</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">configparser</span> <span class="kn">import</span> <span class="n">ConfigParser</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">ConfigParser</span> <span class="kn">import</span> <span class="n">SafeConfigParser</span> <span class="k">as</span> <span class="n">ConfigParser</span>
+
+<span class="kn">import</span> <span class="nn">can</span>
+<span class="kn">from</span> <span class="nn">can.interfaces</span> <span class="kn">import</span> <span class="n">VALID_INTERFACES</span>
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;can.util&#39;</span><span class="p">)</span>
+
+<span class="c1"># List of valid data lengths for a CAN FD message</span>
+<span class="n">CAN_FD_DLC</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span>
+    <span class="mi">12</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">24</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">48</span><span class="p">,</span> <span class="mi">64</span>
+<span class="p">]</span>
+
+<span class="n">REQUIRED_KEYS</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">&#39;interface&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;channel&#39;</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<span class="n">CONFIG_FILES</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;~/can.conf&#39;</span><span class="p">]</span>
+
+<span class="k">if</span> <span class="n">platform</span><span class="o">.</span><span class="n">system</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;Linux&quot;</span><span class="p">:</span>
+    <span class="n">CONFIG_FILES</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="s1">&#39;/etc/can.conf&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;~/.can&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;~/.canrc&#39;</span>
+        <span class="p">]</span>
+    <span class="p">)</span>
+<span class="k">elif</span> <span class="n">platform</span><span class="o">.</span><span class="n">system</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;Windows&quot;</span> <span class="ow">or</span> <span class="n">platform</span><span class="o">.</span><span class="n">python_implementation</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;IronPython&quot;</span><span class="p">:</span>
+    <span class="n">CONFIG_FILES</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="s1">&#39;can.ini&#39;</span><span class="p">,</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s1">&#39;APPDATA&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">),</span> <span class="s1">&#39;can.ini&#39;</span><span class="p">)</span>
+        <span class="p">]</span>
+    <span class="p">)</span>
+
+
+<div class="viewcode-block" id="load_file_config"><a class="viewcode-back" href="../../internal-api.html#can.util.load_file_config">[docs]</a><span class="k">def</span> <span class="nf">load_file_config</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">section</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Loads configuration from file with following content::</span>
+
+<span class="sd">        [default]</span>
+<span class="sd">        interface = socketcan</span>
+<span class="sd">        channel = can0</span>
+
+<span class="sd">    :param path:</span>
+<span class="sd">        path to config file. If not specified, several sensible</span>
+<span class="sd">        default locations are tried depending on platform.</span>
+<span class="sd">    :param section:</span>
+<span class="sd">        name of the section to read configuration from.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="n">ConfigParser</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">config</span><span class="o">.</span><span class="n">read</span><span class="p">([</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">CONFIG_FILES</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">config</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+    <span class="n">_config</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="n">section</span> <span class="o">=</span> <span class="n">section</span> <span class="k">if</span> <span class="n">section</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s1">&#39;default&#39;</span>
+    <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">has_section</span><span class="p">(</span><span class="n">section</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">has_section</span><span class="p">(</span><span class="s1">&#39;default&#39;</span><span class="p">):</span>
+            <span class="n">_config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                <span class="nb">dict</span><span class="p">((</span><span class="n">key</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">(</span><span class="s1">&#39;default&#39;</span><span class="p">)))</span>
+        <span class="n">_config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">dict</span><span class="p">((</span><span class="n">key</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">(</span><span class="n">section</span><span class="p">)))</span>
+
+    <span class="k">return</span> <span class="n">_config</span></div>
+
+
+<div class="viewcode-block" id="load_environment_config"><a class="viewcode-back" href="../../internal-api.html#can.util.load_environment_config">[docs]</a><span class="k">def</span> <span class="nf">load_environment_config</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Loads config dict from environmental variables (if set):</span>
+
+<span class="sd">    * CAN_INTERFACE</span>
+<span class="sd">    * CAN_CHANNEL</span>
+<span class="sd">    * CAN_BITRATE</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mapper</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;interface&#39;</span><span class="p">:</span> <span class="s1">&#39;CAN_INTERFACE&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;channel&#39;</span><span class="p">:</span> <span class="s1">&#39;CAN_CHANNEL&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;bitrate&#39;</span><span class="p">:</span> <span class="s1">&#39;CAN_BITRATE&#39;</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">val</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">mapper</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="load_config"><a class="viewcode-back" href="../../internal-api.html#can.util.load_config">[docs]</a><span class="k">def</span> <span class="nf">load_config</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns a dict with configuration details which is loaded from (in this order):</span>
+
+<span class="sd">    - config</span>
+<span class="sd">    - can.rc</span>
+<span class="sd">    - Environment variables CAN_INTERFACE, CAN_CHANNEL, CAN_BITRATE</span>
+<span class="sd">    - Config files ``/etc/can.conf`` or ``~/.can`` or ``~/.canrc``</span>
+<span class="sd">      where the latter may add or replace values of the former.</span>
+
+<span class="sd">    Interface can be any of the strings from ``can.VALID_INTERFACES`` for example:</span>
+<span class="sd">    kvaser, socketcan, pcan, usb2can, ixxat, nican, virtual.</span>
+
+<span class="sd">    .. note::</span>
+<span class="sd"> </span>
+<span class="sd">            The key ``bustype`` is copied to ``interface`` if that one is missing</span>
+<span class="sd">            and does never appear in the result.</span>
+
+<span class="sd">    :param path:</span>
+<span class="sd">        Optional path to config file.</span>
+
+<span class="sd">    :param config:</span>
+<span class="sd">        A dict which may set the &#39;interface&#39;, and/or the &#39;channel&#39;, or neither.</span>
+<span class="sd">        It may set other values that are passed through.</span>
+
+<span class="sd">    :param context:</span>
+<span class="sd">        Extra &#39;context&#39; pass to config sources. This can be use to section</span>
+<span class="sd">        other than &#39;default&#39; in the configuration file.</span>
+
+<span class="sd">    :return:</span>
+<span class="sd">        A config dictionary that should contain &#39;interface&#39; &amp; &#39;channel&#39;::</span>
+
+<span class="sd">            {</span>
+<span class="sd">                &#39;interface&#39;: &#39;python-can backend interface to use&#39;,</span>
+<span class="sd">                &#39;channel&#39;: &#39;default channel to use&#39;,</span>
+<span class="sd">                # possibly more</span>
+<span class="sd">            }</span>
+
+<span class="sd">        Note ``None`` will be used if all the options are exhausted without</span>
+<span class="sd">        finding a value.</span>
+
+<span class="sd">        All unused values are passed from ``config`` over to this.</span>
+
+<span class="sd">    :raises:</span>
+<span class="sd">        NotImplementedError if the ``interface`` isn&#39;t recognized</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># start with an empty dict to apply filtering to all sources</span>
+    <span class="n">given_config</span> <span class="o">=</span> <span class="n">config</span> <span class="ow">or</span> <span class="p">{}</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="c1"># use the given dict for default values</span>
+    <span class="n">config_sources</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">given_config</span><span class="p">,</span>
+        <span class="n">can</span><span class="o">.</span><span class="n">rc</span><span class="p">,</span>
+        <span class="k">lambda</span> <span class="n">_context</span><span class="p">:</span> <span class="n">load_environment_config</span><span class="p">(),</span>  <span class="c1"># context is not supported</span>
+        <span class="k">lambda</span> <span class="n">_context</span><span class="p">:</span> <span class="n">load_file_config</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">_context</span><span class="p">)</span>
+    <span class="p">]</span>
+
+    <span class="c1"># Slightly complex here to only search for the file config if required</span>
+    <span class="k">for</span> <span class="n">cfg</span> <span class="ow">in</span> <span class="n">config_sources</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">callable</span><span class="p">(</span><span class="n">cfg</span><span class="p">):</span>
+            <span class="n">cfg</span> <span class="o">=</span> <span class="n">cfg</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+        <span class="c1"># remove legacy operator (and copy to interface if not already present)</span>
+        <span class="k">if</span> <span class="s1">&#39;bustype&#39;</span> <span class="ow">in</span> <span class="n">cfg</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s1">&#39;interface&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cfg</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">cfg</span><span class="p">[</span><span class="s1">&#39;interface&#39;</span><span class="p">]:</span>
+                <span class="n">cfg</span><span class="p">[</span><span class="s1">&#39;interface&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cfg</span><span class="p">[</span><span class="s1">&#39;bustype&#39;</span><span class="p">]</span>
+            <span class="k">del</span> <span class="n">cfg</span><span class="p">[</span><span class="s1">&#39;bustype&#39;</span><span class="p">]</span>
+        <span class="c1"># copy all new parameters</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">cfg</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">config</span><span class="p">:</span>
+                <span class="n">config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">cfg</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+
+    <span class="c1"># substitute None for all values not found</span>
+    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">REQUIRED_KEYS</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">config</span><span class="p">:</span>
+            <span class="n">config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Handle deprecated socketcan types</span>
+    <span class="k">if</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;interface&#39;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;socketcan_native&#39;</span><span class="p">,</span> <span class="s1">&#39;socketcan_ctypes&#39;</span><span class="p">):</span>
+        <span class="c1"># DeprecationWarning in 3.x releases</span>
+        <span class="c1"># TODO: Remove completely in 4.0</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1"> is deprecated, use socketcan instead&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;interface&#39;</span><span class="p">]),</span> <span class="ne">DeprecationWarning</span><span class="p">)</span>
+        <span class="n">config</span><span class="p">[</span><span class="s1">&#39;interface&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;socketcan&#39;</span>
+
+    <span class="k">if</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;interface&#39;</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">VALID_INTERFACES</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;Invalid CAN Bus Type - </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;interface&#39;</span><span class="p">]))</span>
+
+    <span class="k">if</span> <span class="s1">&#39;bitrate&#39;</span> <span class="ow">in</span> <span class="n">config</span><span class="p">:</span>
+        <span class="n">config</span><span class="p">[</span><span class="s1">&#39;bitrate&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;bitrate&#39;</span><span class="p">])</span>
+
+    <span class="n">can</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;can config: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">config</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">config</span></div>
+
+            
+<div class="viewcode-block" id="set_logging_level"><a class="viewcode-back" href="../../internal-api.html#can.util.set_logging_level">[docs]</a><span class="k">def</span> <span class="nf">set_logging_level</span><span class="p">(</span><span class="n">level_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Set the logging level for the &quot;can&quot; logger.</span>
+<span class="sd">    Expects one of: &#39;critical&#39;, &#39;error&#39;, &#39;warning&#39;, &#39;info&#39;, &#39;debug&#39;, &#39;subdebug&#39;</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">can_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;can&#39;</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">can_logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">logging</span><span class="p">,</span> <span class="n">level_name</span><span class="o">.</span><span class="n">upper</span><span class="p">()))</span>
+    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+        <span class="n">can_logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Logging set to </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">level_name</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="len2dlc"><a class="viewcode-back" href="../../internal-api.html#can.util.len2dlc">[docs]</a><span class="k">def</span> <span class="nf">len2dlc</span><span class="p">(</span><span class="n">length</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate the DLC from data length.</span>
+
+<span class="sd">    :param int length: Length in number of bytes (0-64)</span>
+
+<span class="sd">    :returns: DLC (0-15)</span>
+<span class="sd">    :rtype: int</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">length</span> <span class="o">&lt;=</span> <span class="mi">8</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">length</span>
+    <span class="k">for</span> <span class="n">dlc</span><span class="p">,</span> <span class="n">nof_bytes</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">CAN_FD_DLC</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">nof_bytes</span> <span class="o">&gt;=</span> <span class="n">length</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">dlc</span>
+    <span class="k">return</span> <span class="mi">15</span></div>
+
+
+<div class="viewcode-block" id="dlc2len"><a class="viewcode-back" href="../../internal-api.html#can.util.dlc2len">[docs]</a><span class="k">def</span> <span class="nf">dlc2len</span><span class="p">(</span><span class="n">dlc</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate the data length from DLC.</span>
+
+<span class="sd">    :param int dlc: DLC (0-15)</span>
+
+<span class="sd">    :returns: Data length in number of bytes (0-64)</span>
+<span class="sd">    :rtype: int</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">CAN_FD_DLC</span><span class="p">[</span><span class="n">dlc</span><span class="p">]</span> <span class="k">if</span> <span class="n">dlc</span> <span class="o">&lt;=</span> <span class="mi">15</span> <span class="k">else</span> <span class="mi">64</span></div>
+
+
+<div class="viewcode-block" id="channel2int"><a class="viewcode-back" href="../../internal-api.html#can.util.channel2int">[docs]</a><span class="k">def</span> <span class="nf">channel2int</span><span class="p">(</span><span class="n">channel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Try to convert the channel to an integer.</span>
+
+<span class="sd">    :param channel:</span>
+<span class="sd">        Channel string (e.g. can0, CAN1) or integer</span>
+<span class="sd">    </span>
+<span class="sd">    :returns: Channel integer or `None` if unsuccessful</span>
+<span class="sd">    :rtype: int</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">channel</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">channel</span>
+    <span class="c1"># String and byte objects have a lower() method</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="s2">&quot;lower&quot;</span><span class="p">):</span>
+        <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;.*(\d+)$&#39;</span><span class="p">,</span> <span class="n">channel</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+    <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Searching for configuration named:&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">CONFIG_FILES</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Settings:&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">load_config</span><span class="p">())</span>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../can.html" >can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.util</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

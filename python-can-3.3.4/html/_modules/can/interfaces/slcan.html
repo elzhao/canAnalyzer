@@ -1,0 +1,288 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>can.interfaces.slcan &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css" />
+    
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../can.html" accesskey="U">can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.slcan</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for can.interfaces.slcan</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Interface for slcan compatible interfaces (win32/linux).</span>
+
+<span class="sd">.. note::</span>
+
+<span class="sd">    Linux users can use slcand or socketcan as well.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">absolute_import</span>
+
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="kn">from</span> <span class="nn">can</span> <span class="kn">import</span> <span class="n">BusABC</span><span class="p">,</span> <span class="n">Message</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">serial</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;You won&#39;t be able to use the slcan can backend without &quot;</span>
+                   <span class="s2">&quot;the serial module installed!&quot;</span><span class="p">)</span>
+    <span class="n">serial</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<div class="viewcode-block" id="slcanBus"><a class="viewcode-back" href="../../../interfaces/slcan.html#can.interfaces.slcan.slcanBus">[docs]</a><span class="k">class</span> <span class="nc">slcanBus</span><span class="p">(</span><span class="n">BusABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    slcan interface</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># the supported bitrates and their commands</span>
+    <span class="n">_BITRATES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="mi">10000</span><span class="p">:</span>      <span class="s1">&#39;S0&#39;</span><span class="p">,</span>
+        <span class="mi">20000</span><span class="p">:</span>      <span class="s1">&#39;S1&#39;</span><span class="p">,</span>
+        <span class="mi">50000</span><span class="p">:</span>      <span class="s1">&#39;S2&#39;</span><span class="p">,</span>
+        <span class="mi">100000</span><span class="p">:</span>     <span class="s1">&#39;S3&#39;</span><span class="p">,</span>
+        <span class="mi">125000</span><span class="p">:</span>     <span class="s1">&#39;S4&#39;</span><span class="p">,</span>
+        <span class="mi">250000</span><span class="p">:</span>     <span class="s1">&#39;S5&#39;</span><span class="p">,</span>
+        <span class="mi">500000</span><span class="p">:</span>     <span class="s1">&#39;S6&#39;</span><span class="p">,</span>
+        <span class="mi">750000</span><span class="p">:</span>     <span class="s1">&#39;S7&#39;</span><span class="p">,</span>
+        <span class="mi">1000000</span><span class="p">:</span>    <span class="s1">&#39;S8&#39;</span><span class="p">,</span>
+        <span class="mi">83300</span><span class="p">:</span>      <span class="s1">&#39;S9&#39;</span>
+    <span class="p">}</span>
+
+    <span class="n">_SLEEP_AFTER_SERIAL_OPEN</span> <span class="o">=</span> <span class="mi">2</span>  <span class="c1"># in seconds</span>
+
+    <span class="n">LINE_TERMINATOR</span> <span class="o">=</span> <span class="sa">b</span><span class="s1">&#39;</span><span class="se">\r</span><span class="s1">&#39;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">ttyBaudrate</span><span class="o">=</span><span class="mi">115200</span><span class="p">,</span> <span class="n">bitrate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">btr</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sleep_after_open</span><span class="o">=</span><span class="n">_SLEEP_AFTER_SERIAL_OPEN</span><span class="p">,</span>
+                 <span class="n">rtscts</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :raise ValueError: if both *bitrate* and *btr* are set</span>
+
+<span class="sd">        :param str channel:</span>
+<span class="sd">            port of underlying serial or usb device (e.g. /dev/ttyUSB0, COM8, ...)</span>
+<span class="sd">            Must not be empty.</span>
+<span class="sd">        :param int ttyBaudrate:</span>
+<span class="sd">            baudrate of underlying serial or usb device</span>
+<span class="sd">        :param int bitrate:</span>
+<span class="sd">            Bitrate in bit/s</span>
+<span class="sd">        :param str btr:</span>
+<span class="sd">            BTR register value to set custom can speed</span>
+<span class="sd">        :param float poll_interval:</span>
+<span class="sd">            Poll interval in seconds when reading messages</span>
+<span class="sd">        :param float sleep_after_open:</span>
+<span class="sd">            Time to wait in seconds after opening serial connection</span>
+<span class="sd">        :param bool rtscts:</span>
+<span class="sd">            turn hardware handshake (RTS/CTS) on and off</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">channel</span><span class="p">:</span>  <span class="c1"># if None or empty</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Must specify a serial port.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="s1">&#39;@&#39;</span> <span class="ow">in</span> <span class="n">channel</span><span class="p">:</span>
+            <span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">ttyBaudrate</span><span class="p">)</span> <span class="o">=</span> <span class="n">channel</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;@&#39;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">serialPortOrig</span> <span class="o">=</span> <span class="n">serial</span><span class="o">.</span><span class="n">serial_for_url</span><span class="p">(</span>
+            <span class="n">channel</span><span class="p">,</span> <span class="n">baudrate</span><span class="o">=</span><span class="n">ttyBaudrate</span><span class="p">,</span> <span class="n">rtscts</span><span class="o">=</span><span class="n">rtscts</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">()</span>
+
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">sleep_after_open</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">bitrate</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">btr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Bitrate and btr mutually exclusive.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">bitrate</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">bitrate</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_BITRATES</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_BITRATES</span><span class="p">[</span><span class="n">bitrate</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid bitrate, choose one of &quot;</span> <span class="o">+</span> <span class="p">(</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_BITRATES</span><span class="p">))</span> <span class="o">+</span> <span class="s1">&#39;.&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">btr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;s&quot;</span> <span class="o">+</span> <span class="n">btr</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">open</span><span class="p">()</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">slcanBus</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">ttyBaudrate</span><span class="o">=</span><span class="mi">115200</span><span class="p">,</span>
+                                       <span class="n">bitrate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rtscts</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">string</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">serialPortOrig</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">string</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">LINE_TERMINATOR</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">serialPortOrig</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">open</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;O&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;C&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_recv_internal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">timeout</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">serialPortOrig</span><span class="o">.</span><span class="n">timeout</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">serialPortOrig</span><span class="o">.</span><span class="n">timeout</span> <span class="o">=</span> <span class="n">timeout</span>
+
+        <span class="n">canId</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">remote</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">extended</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># First read what is already in the receive buffer</span>
+        <span class="k">while</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">serialPortOrig</span><span class="o">.</span><span class="n">in_waiting</span> <span class="ow">and</span>
+               <span class="bp">self</span><span class="o">.</span><span class="n">LINE_TERMINATOR</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">serialPortOrig</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># If we still don&#39;t have a complete message, do a blocking read</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">LINE_TERMINATOR</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">serialPortOrig</span><span class="o">.</span><span class="n">read_until</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">LINE_TERMINATOR</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">LINE_TERMINATOR</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">:</span>
+            <span class="c1"># Timed out</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span>
+
+        <span class="n">readStr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
+        <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[:]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">readStr</span><span class="p">:</span>
+            <span class="k">pass</span>
+        <span class="k">elif</span> <span class="n">readStr</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;T&#39;</span><span class="p">:</span>
+            <span class="c1"># extended frame</span>
+            <span class="n">canId</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">readStr</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">9</span><span class="p">],</span> <span class="mi">16</span><span class="p">)</span>
+            <span class="n">dlc</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">readStr</span><span class="p">[</span><span class="mi">9</span><span class="p">])</span>
+            <span class="n">extended</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dlc</span><span class="p">):</span>
+                <span class="n">frame</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">readStr</span><span class="p">[</span><span class="mi">10</span> <span class="o">+</span> <span class="n">i</span> <span class="o">*</span> <span class="mi">2</span><span class="p">:</span><span class="mi">12</span> <span class="o">+</span> <span class="n">i</span> <span class="o">*</span> <span class="mi">2</span><span class="p">],</span> <span class="mi">16</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="n">readStr</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;t&#39;</span><span class="p">:</span>
+            <span class="c1"># normal frame</span>
+            <span class="n">canId</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">readStr</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">4</span><span class="p">],</span> <span class="mi">16</span><span class="p">)</span>
+            <span class="n">dlc</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">readStr</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dlc</span><span class="p">):</span>
+                <span class="n">frame</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">readStr</span><span class="p">[</span><span class="mi">5</span> <span class="o">+</span> <span class="n">i</span> <span class="o">*</span> <span class="mi">2</span><span class="p">:</span><span class="mi">7</span> <span class="o">+</span> <span class="n">i</span> <span class="o">*</span> <span class="mi">2</span><span class="p">],</span> <span class="mi">16</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="n">readStr</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;r&#39;</span><span class="p">:</span>
+            <span class="c1"># remote frame</span>
+            <span class="n">canId</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">readStr</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">4</span><span class="p">],</span> <span class="mi">16</span><span class="p">)</span>
+            <span class="n">dlc</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">readStr</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span>
+            <span class="n">remote</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">elif</span> <span class="n">readStr</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;R&#39;</span><span class="p">:</span>
+            <span class="c1"># remote extended frame</span>
+            <span class="n">canId</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">readStr</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">9</span><span class="p">],</span> <span class="mi">16</span><span class="p">)</span>
+            <span class="n">dlc</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">readStr</span><span class="p">[</span><span class="mi">9</span><span class="p">])</span>
+            <span class="n">extended</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">remote</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="k">if</span> <span class="n">canId</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="n">Message</span><span class="p">(</span><span class="n">arbitration_id</span><span class="o">=</span><span class="n">canId</span><span class="p">,</span>
+                            <span class="n">is_extended_id</span><span class="o">=</span><span class="n">extended</span><span class="p">,</span>
+                            <span class="n">timestamp</span><span class="o">=</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">(),</span>   <span class="c1"># Better than nothing...</span>
+                            <span class="n">is_remote_frame</span><span class="o">=</span><span class="n">remote</span><span class="p">,</span>
+                            <span class="n">dlc</span><span class="o">=</span><span class="n">dlc</span><span class="p">,</span>
+                            <span class="n">data</span><span class="o">=</span><span class="n">frame</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">msg</span><span class="p">,</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="slcanBus.send"><a class="viewcode-back" href="../../../interfaces/slcan.html#can.interfaces.slcan.slcanBus.send">[docs]</a>    <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">timeout</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">serialPortOrig</span><span class="o">.</span><span class="n">write_timeout</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">serialPortOrig</span><span class="o">.</span><span class="n">write_timeout</span> <span class="o">=</span> <span class="n">timeout</span>
+
+        <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_remote_frame</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_extended_id</span><span class="p">:</span>
+                <span class="n">sendStr</span> <span class="o">=</span> <span class="s2">&quot;R</span><span class="si">%08X%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">arbitration_id</span><span class="p">,</span> <span class="n">msg</span><span class="o">.</span><span class="n">dlc</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">sendStr</span> <span class="o">=</span> <span class="s2">&quot;r</span><span class="si">%03X%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">arbitration_id</span><span class="p">,</span> <span class="n">msg</span><span class="o">.</span><span class="n">dlc</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_extended_id</span><span class="p">:</span>
+                <span class="n">sendStr</span> <span class="o">=</span> <span class="s2">&quot;T</span><span class="si">%08X%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">arbitration_id</span><span class="p">,</span> <span class="n">msg</span><span class="o">.</span><span class="n">dlc</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">sendStr</span> <span class="o">=</span> <span class="s2">&quot;t</span><span class="si">%03X%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">arbitration_id</span><span class="p">,</span> <span class="n">msg</span><span class="o">.</span><span class="n">dlc</span><span class="p">)</span>
+
+            <span class="n">sendStr</span> <span class="o">+=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="s2">&quot;</span><span class="si">%02X</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">b</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">msg</span><span class="o">.</span><span class="n">data</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">sendStr</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="slcanBus.shutdown"><a class="viewcode-back" href="../../../interfaces/slcan.html#can.interfaces.slcan.slcanBus.shutdown">[docs]</a>    <span class="k">def</span> <span class="nf">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">serialPortOrig</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="nf">fileno</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">serialPortOrig</span><span class="p">,</span> <span class="s1">&#39;fileno&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">serialPortOrig</span><span class="o">.</span><span class="n">fileno</span><span class="p">()</span>
+        <span class="c1"># Return an invalid file descriptor on Windows</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../can.html" >can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.slcan</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

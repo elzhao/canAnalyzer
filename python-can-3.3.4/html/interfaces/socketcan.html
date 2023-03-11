@@ -1,0 +1,387 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>SocketCAN &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
+    
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Kvaser’s CANLIB" href="kvaser.html" />
+    <link rel="prev" title="CAN Interface Modules" href="../interfaces.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="kvaser.html" title="Kvaser’s CANLIB"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../interfaces.html" title="CAN Interface Modules"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../interfaces.html" accesskey="U">CAN Interface Modules</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">SocketCAN</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="socketcan">
+<h1>SocketCAN<a class="headerlink" href="#socketcan" title="Permalink to this heading">¶</a></h1>
+<p>The full documentation for socketcan can be found in the kernel docs at
+<a class="reference external" href="https://www.kernel.org/doc/Documentation/networking/can.txt">networking/can.txt</a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Versions before 2.2 had two different implementations named
+<code class="docutils literal notranslate"><span class="pre">socketcan_ctypes</span></code> and <code class="docutils literal notranslate"><span class="pre">socketcan_native</span></code>. These are now
+deprecated and the aliases to <code class="docutils literal notranslate"><span class="pre">socketcan</span></code> will be removed in
+version 4.0.  3.x releases raise a DeprecationWarning.</p>
+</div>
+<section id="socketcan-quickstart">
+<h2>Socketcan Quickstart<a class="headerlink" href="#socketcan-quickstart" title="Permalink to this heading">¶</a></h2>
+<p>The CAN network driver provides a generic
+interface to setup, configure and monitor CAN devices. To configure
+bit-timing parameters use the program <code class="docutils literal notranslate"><span class="pre">ip</span></code>.</p>
+<section id="the-virtual-can-driver-vcan">
+<h3>The virtual CAN driver (vcan)<a class="headerlink" href="#the-virtual-can-driver-vcan" title="Permalink to this heading">¶</a></h3>
+<p>The virtual CAN interfaces allow the transmission and reception of CAN
+frames without real CAN controller hardware. Virtual CAN network devices
+are usually named ‘vcanX’, like vcan0 vcan1 vcan2.</p>
+<p>To create a virtual can interface using socketcan run the following:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>modprobe<span class="w"> </span>vcan
+<span class="c1"># Create a vcan network interface with a specific name</span>
+sudo<span class="w"> </span>ip<span class="w"> </span>link<span class="w"> </span>add<span class="w"> </span>dev<span class="w"> </span>vcan0<span class="w"> </span><span class="nb">type</span><span class="w"> </span>vcan
+sudo<span class="w"> </span>ip<span class="w"> </span>link<span class="w"> </span><span class="nb">set</span><span class="w"> </span>vcan0<span class="w"> </span>up
+</pre></div>
+</div>
+</section>
+<section id="real-device">
+<h3>Real Device<a class="headerlink" href="#real-device" title="Permalink to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">vcan</span></code> should be substituted for <code class="docutils literal notranslate"><span class="pre">can</span></code> and <code class="docutils literal notranslate"><span class="pre">vcan0</span></code> should be
+substituted for <code class="docutils literal notranslate"><span class="pre">can0</span></code> if you are using real hardware. Setting the
+bitrate can also be done at the same time, for example to enable an
+existing <code class="docutils literal notranslate"><span class="pre">can0</span></code> interface with a bitrate of 1MB:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>ip<span class="w"> </span>link<span class="w"> </span><span class="nb">set</span><span class="w"> </span>can0<span class="w"> </span>up<span class="w"> </span><span class="nb">type</span><span class="w"> </span>can<span class="w"> </span>bitrate<span class="w"> </span><span class="m">1000000</span>
+</pre></div>
+</div>
+</section>
+<section id="pcan">
+<span id="socketcan-pcan"></span><h3>PCAN<a class="headerlink" href="#pcan" title="Permalink to this heading">¶</a></h3>
+<p>Kernels &gt;= 3.4 supports the PCAN adapters natively via <a class="reference internal" href="#"><span class="doc">SocketCAN</span></a>, so there is no need to install any drivers. The CAN interface can be brought like so:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">modprobe</span> <span class="n">peak_usb</span>
+<span class="n">sudo</span> <span class="n">modprobe</span> <span class="n">peak_pci</span>
+<span class="n">sudo</span> <span class="n">ip</span> <span class="n">link</span> <span class="nb">set</span> <span class="n">can0</span> <span class="n">up</span> <span class="nb">type</span> <span class="n">can</span> <span class="n">bitrate</span> <span class="mi">500000</span>
+</pre></div>
+</div>
+<section id="send-test-message">
+<h4>Send Test Message<a class="headerlink" href="#send-test-message" title="Permalink to this heading">¶</a></h4>
+<p>The <a class="reference external" href="https://github.com/linux-can/can-utils">can-utils</a> library for linux
+includes a script <cite>cansend</cite> which is useful to send known payloads. For
+example to send a message on <cite>vcan0</cite>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cansend<span class="w"> </span>vcan0<span class="w"> </span><span class="m">123</span><span class="c1">#DEADBEEF</span>
+</pre></div>
+</div>
+</section>
+<section id="can-errors">
+<h4>CAN Errors<a class="headerlink" href="#can-errors" title="Permalink to this heading">¶</a></h4>
+<p>A device may enter the “bus-off” state if too many errors occurred on
+the CAN bus. Then no more messages are received or sent. An automatic
+bus-off recovery can be enabled by setting the “restart-ms” to a
+non-zero value, e.g.:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>ip<span class="w"> </span>link<span class="w"> </span><span class="nb">set</span><span class="w"> </span>canX<span class="w"> </span><span class="nb">type</span><span class="w"> </span>can<span class="w"> </span>restart-ms<span class="w"> </span><span class="m">100</span>
+</pre></div>
+</div>
+<p>Alternatively, the application may realize the “bus-off” condition by
+monitoring CAN error frames and do a restart when appropriate with the
+command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ip<span class="w"> </span>link<span class="w"> </span><span class="nb">set</span><span class="w"> </span>canX<span class="w"> </span><span class="nb">type</span><span class="w"> </span>can<span class="w"> </span>restart
+</pre></div>
+</div>
+<p>Note that a restart will also create a CAN error frame.</p>
+</section>
+</section>
+<section id="list-network-interfaces">
+<h3>List network interfaces<a class="headerlink" href="#list-network-interfaces" title="Permalink to this heading">¶</a></h3>
+<p>To reveal the newly created <code class="docutils literal notranslate"><span class="pre">can0</span></code> or a <code class="docutils literal notranslate"><span class="pre">vcan0</span></code> interface:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ifconfig
+</pre></div>
+</div>
+</section>
+<section id="display-can-statistics">
+<h3>Display CAN statistics<a class="headerlink" href="#display-can-statistics" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ip<span class="w"> </span>-details<span class="w"> </span>-statistics<span class="w"> </span>link<span class="w"> </span>show<span class="w"> </span>vcan0
+</pre></div>
+</div>
+</section>
+<section id="network-interface-removal">
+<h3>Network Interface Removal<a class="headerlink" href="#network-interface-removal" title="Permalink to this heading">¶</a></h3>
+<p>To remove the network interface:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>ip<span class="w"> </span>link<span class="w"> </span>del<span class="w"> </span>vcan0
+</pre></div>
+</div>
+</section>
+</section>
+<section id="wireshark">
+<h2>Wireshark<a class="headerlink" href="#wireshark" title="Permalink to this heading">¶</a></h2>
+<p>Wireshark supports socketcan and can be used to debug <em>python-can</em>
+messages. Fire it up and watch your new interface.</p>
+<p>To spam a bus:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">can</span>
+
+<span class="n">bustype</span> <span class="o">=</span> <span class="s1">&#39;socketcan&#39;</span>
+<span class="n">channel</span> <span class="o">=</span> <span class="s1">&#39;vcan0&#39;</span>
+
+<span class="k">def</span> <span class="nf">producer</span><span class="p">(</span><span class="nb">id</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;:param id: Spam the bus with messages including the data id.&quot;&quot;&quot;</span>
+    <span class="n">bus</span> <span class="o">=</span> <span class="n">can</span><span class="o">.</span><span class="n">interface</span><span class="o">.</span><span class="n">Bus</span><span class="p">(</span><span class="n">channel</span><span class="o">=</span><span class="n">channel</span><span class="p">,</span> <span class="n">bustype</span><span class="o">=</span><span class="n">bustype</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="n">can</span><span class="o">.</span><span class="n">Message</span><span class="p">(</span><span class="n">arbitration_id</span><span class="o">=</span><span class="mh">0xc0ffee</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="p">[</span><span class="nb">id</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">is_extended_id</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">bus</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+    <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="n">producer</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>With debugging turned right up this looks something like this:</p>
+<a class="reference internal image-reference" href="../_images/wireshark.png"><img alt="../_images/wireshark.png" src="../_images/wireshark.png" style="width: 100%;" /></a>
+<p>The process to follow bus traffic is even easier:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">for</span> <span class="n">message</span> <span class="ow">in</span> <span class="n">Bus</span><span class="p">(</span><span class="n">can_interface</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="reading-and-timeouts">
+<h2>Reading and Timeouts<a class="headerlink" href="#reading-and-timeouts" title="Permalink to this heading">¶</a></h2>
+<p>Reading a single CAN message off of the bus is simple with the <code class="docutils literal notranslate"><span class="pre">bus.recv()</span></code>
+function:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">can</span>
+
+<span class="n">can_interface</span> <span class="o">=</span> <span class="s1">&#39;vcan0&#39;</span>
+<span class="n">bus</span> <span class="o">=</span> <span class="n">can</span><span class="o">.</span><span class="n">interface</span><span class="o">.</span><span class="n">Bus</span><span class="p">(</span><span class="n">can_interface</span><span class="p">,</span> <span class="n">bustype</span><span class="o">=</span><span class="s1">&#39;socketcan&#39;</span><span class="p">)</span>
+<span class="n">message</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>By default, this performs a blocking read, which means <code class="docutils literal notranslate"><span class="pre">bus.recv()</span></code> won’t
+return until a CAN message shows up on the socket. You can optionally perform a
+blocking read with a timeout like this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">message</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>  <span class="c1"># Timeout in seconds.</span>
+
+<span class="k">if</span> <span class="n">message</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Timeout occurred, no message.&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>If you set the timeout to <code class="docutils literal notranslate"><span class="pre">0.0</span></code>, the read will be executed as non-blocking,
+which means <code class="docutils literal notranslate"><span class="pre">bus.recv(0.0)</span></code> will return immediately, either with a <code class="docutils literal notranslate"><span class="pre">Message</span></code>
+object or <code class="docutils literal notranslate"><span class="pre">None</span></code>, depending on whether data was available on the socket.</p>
+</section>
+<section id="filtering">
+<h2>Filtering<a class="headerlink" href="#filtering" title="Permalink to this heading">¶</a></h2>
+<p>The implementation features efficient filtering of can_id’s. That filtering
+occurs in the kernel and is much much more efficient than filtering messages
+in Python.</p>
+</section>
+<section id="broadcast-manager">
+<h2>Broadcast Manager<a class="headerlink" href="#broadcast-manager" title="Permalink to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">socketcan</span></code> interface implements thin wrappers to the linux <cite>broadcast manager</cite>
+socket api. This allows the cyclic transmission of CAN messages at given intervals.
+The overhead for periodic message sending is extremely low as all the heavy lifting occurs
+within the linux kernel.</p>
+<section id="send-periodic">
+<h3>send_periodic()<a class="headerlink" href="#send-periodic" title="Permalink to this heading">¶</a></h3>
+<p>An example that uses the send_periodic is included in <code class="docutils literal notranslate"><span class="pre">python-can/examples/cyclic.py</span></code></p>
+<p>The object returned can be used to halt, alter or cancel the periodic message task.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.interfaces.socketcan.CyclicSendTask">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.interfaces.socketcan.</span></span><span class="sig-name descname"><span class="pre">CyclicSendTask</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bcm_socket</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">period</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">duration</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/socketcan/socketcan.html#CyclicSendTask"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.socketcan.CyclicSendTask" title="Permalink to this definition">¶</a></dt>
+<dd><p>A socketcan cyclic send task supports:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>setting of a task duration</p></li>
+<li><p>modifying the data</p></li>
+<li><p>stopping then subsequent restarting of the task</p></li>
+</ul>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bcm_socket</strong> – An open bcm socket on the desired CAN channel.</p></li>
+<li><p><strong>message</strong> (<a class="reference internal" href="../message.html#can.Message" title="can.Message"><em>can.Message</em></a>) – The message to be sent periodically.</p></li>
+<li><p><strong>period</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – The rate in seconds at which to send the message.</p></li>
+<li><p><strong>duration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – Approximate duration in seconds to send the message.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+<section id="bus">
+<h2>Bus<a class="headerlink" href="#bus" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.interfaces.socketcan.SocketcanBus">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.interfaces.socketcan.</span></span><span class="sig-name descname"><span class="pre">SocketcanBus</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">receive_own_messages</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/can/interfaces/socketcan/socketcan.html#SocketcanBus"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.interfaces.socketcan.SocketcanBus" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements <code class="xref py py-meth docutils literal notranslate"><span class="pre">can.BusABC._detect_available_configs()</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>channel</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – The can interface name with which to create this bus. An example channel
+would be ‘vcan0’ or ‘can0’.
+An empty string ‘’ will receive messages from all channels.
+In that case any sent messages must be explicitly addressed to a
+channel using <a class="reference internal" href="../message.html#can.Message.channel" title="can.Message.channel"><code class="xref py py-attr docutils literal notranslate"><span class="pre">can.Message.channel</span></code></a>.</p></li>
+<li><p><strong>receive_own_messages</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – If transmitted messages should also be received by this bus.</p></li>
+<li><p><strong>fd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – If CAN-FD frames should be supported.</p></li>
+<li><p><strong>can_filters</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a>) – See <a class="reference internal" href="../bus.html#can.BusABC.set_filters" title="can.BusABC.set_filters"><code class="xref py py-meth docutils literal notranslate"><span class="pre">can.BusABC.set_filters()</span></code></a>.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="can.interfaces.socketcan.SocketcanBus.recv">
+<span class="sig-name descname"><span class="pre">recv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#can.interfaces.socketcan.SocketcanBus.recv" title="Permalink to this definition">¶</a></dt>
+<dd><p>Block waiting for a message from the Bus.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>timeout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – seconds to wait for a message or None to wait indefinitely</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="../message.html#can.Message" title="can.Message">can.Message</a> or None</p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None on timeout or a <a class="reference internal" href="../message.html#can.Message" title="can.Message"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.Message</span></code></a> object.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="../api.html#can.CanError" title="can.CanError"><strong>can.CanError</strong></a> – if an error occurred while reading</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="../index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">SocketCAN</a><ul>
+<li><a class="reference internal" href="#socketcan-quickstart">Socketcan Quickstart</a><ul>
+<li><a class="reference internal" href="#the-virtual-can-driver-vcan">The virtual CAN driver (vcan)</a></li>
+<li><a class="reference internal" href="#real-device">Real Device</a></li>
+<li><a class="reference internal" href="#pcan">PCAN</a><ul>
+<li><a class="reference internal" href="#send-test-message">Send Test Message</a></li>
+<li><a class="reference internal" href="#can-errors">CAN Errors</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#list-network-interfaces">List network interfaces</a></li>
+<li><a class="reference internal" href="#display-can-statistics">Display CAN statistics</a></li>
+<li><a class="reference internal" href="#network-interface-removal">Network Interface Removal</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#wireshark">Wireshark</a></li>
+<li><a class="reference internal" href="#reading-and-timeouts">Reading and Timeouts</a></li>
+<li><a class="reference internal" href="#filtering">Filtering</a></li>
+<li><a class="reference internal" href="#broadcast-manager">Broadcast Manager</a><ul>
+<li><a class="reference internal" href="#send-periodic">send_periodic()</a><ul>
+<li><a class="reference internal" href="#can.interfaces.socketcan.CyclicSendTask"><code class="docutils literal notranslate"><span class="pre">CyclicSendTask</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#bus">Bus</a><ul>
+<li><a class="reference internal" href="#can.interfaces.socketcan.SocketcanBus"><code class="docutils literal notranslate"><span class="pre">SocketcanBus</span></code></a><ul>
+<li><a class="reference internal" href="#can.interfaces.socketcan.SocketcanBus.recv"><code class="docutils literal notranslate"><span class="pre">SocketcanBus.recv()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="../interfaces.html"
+                          title="previous chapter">CAN Interface Modules</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="kvaser.html"
+                          title="next chapter">Kvaser’s CANLIB</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/interfaces/socketcan.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="kvaser.html" title="Kvaser’s CANLIB"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="../interfaces.html" title="CAN Interface Modules"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../interfaces.html" >CAN Interface Modules</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">SocketCAN</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

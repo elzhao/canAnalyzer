@@ -1,0 +1,856 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>can.interfaces.socketcan.socketcan &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css" />
+    
+    <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <script src="../../../../_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../../can.html" accesskey="U">can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.socketcan.socketcan</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for can.interfaces.socketcan.socketcan</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="kn">import</span> <span class="nn">ctypes</span>
+<span class="kn">import</span> <span class="nn">ctypes.util</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">select</span>
+<span class="kn">import</span> <span class="nn">socket</span>
+<span class="kn">import</span> <span class="nn">struct</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">errno</span>
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+<span class="n">log_tx</span> <span class="o">=</span> <span class="n">log</span><span class="o">.</span><span class="n">getChild</span><span class="p">(</span><span class="s2">&quot;tx&quot;</span><span class="p">)</span>
+<span class="n">log_rx</span> <span class="o">=</span> <span class="n">log</span><span class="o">.</span><span class="n">getChild</span><span class="p">(</span><span class="s2">&quot;rx&quot;</span><span class="p">)</span>
+
+<span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loading socketcan native backend&quot;</span><span class="p">)</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">fcntl</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;fcntl not available on this platform&quot;</span><span class="p">)</span>
+
+
+<span class="kn">import</span> <span class="nn">can</span>
+<span class="kn">from</span> <span class="nn">can</span> <span class="kn">import</span> <span class="n">Message</span><span class="p">,</span> <span class="n">BusABC</span>
+<span class="kn">from</span> <span class="nn">can.broadcastmanager</span> <span class="kn">import</span> <span class="n">ModifiableCyclicTaskABC</span><span class="p">,</span> \
+    <span class="n">RestartableCyclicTaskABC</span><span class="p">,</span> <span class="n">LimitedDurationCyclicSendTaskABC</span>
+<span class="kn">from</span> <span class="nn">can.interfaces.socketcan.constants</span> <span class="kn">import</span> <span class="o">*</span> <span class="c1"># CAN_RAW, CAN_*_FLAG</span>
+<span class="kn">from</span> <span class="nn">can.interfaces.socketcan.utils</span> <span class="kn">import</span> \
+    <span class="n">pack_filters</span><span class="p">,</span> <span class="n">find_available_interfaces</span><span class="p">,</span> <span class="n">error_code_to_str</span>
+
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">socket</span><span class="o">.</span><span class="n">CAN_BCM</span>
+<span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+    <span class="n">HAS_NATIVE_SUPPORT</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">HAS_NATIVE_SUPPORT</span> <span class="o">=</span> <span class="kc">True</span>
+
+
+<span class="k">if</span> <span class="ow">not</span> <span class="n">HAS_NATIVE_SUPPORT</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">check_status</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">function</span><span class="p">,</span> <span class="n">arguments</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">result</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">can</span><span class="o">.</span><span class="n">CanError</span><span class="p">(</span><span class="n">error_code_to_str</span><span class="p">(</span><span class="n">ctypes</span><span class="o">.</span><span class="n">get_errno</span><span class="p">()))</span>
+        <span class="k">return</span> <span class="n">result</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">libc</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">CDLL</span><span class="p">(</span><span class="n">ctypes</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">find_library</span><span class="p">(</span><span class="s2">&quot;c&quot;</span><span class="p">),</span> <span class="n">use_errno</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">libc</span><span class="o">.</span><span class="n">bind</span><span class="o">.</span><span class="n">errcheck</span> <span class="o">=</span> <span class="n">check_status</span>
+        <span class="n">libc</span><span class="o">.</span><span class="n">connect</span><span class="o">.</span><span class="n">errcheck</span> <span class="o">=</span> <span class="n">check_status</span>
+        <span class="n">libc</span><span class="o">.</span><span class="n">sendto</span><span class="o">.</span><span class="n">errcheck</span> <span class="o">=</span> <span class="n">check_status</span>
+        <span class="n">libc</span><span class="o">.</span><span class="n">recvfrom</span><span class="o">.</span><span class="n">errcheck</span> <span class="o">=</span> <span class="n">check_status</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;libc is unavailable&quot;</span><span class="p">)</span>
+        <span class="n">libc</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">get_addr</span><span class="p">(</span><span class="n">sock</span><span class="p">,</span> <span class="n">channel</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get sockaddr for a channel.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">channel</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s2">&quot;16si&quot;</span><span class="p">,</span> <span class="n">channel</span><span class="o">.</span><span class="n">encode</span><span class="p">(),</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">fcntl</span><span class="o">.</span><span class="n">ioctl</span><span class="p">(</span><span class="n">sock</span><span class="p">,</span> <span class="n">SIOCGIFINDEX</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+            <span class="n">idx</span><span class="p">,</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="s2">&quot;16xi&quot;</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># All channels</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">return</span> <span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s2">&quot;HiLL&quot;</span><span class="p">,</span> <span class="n">AF_CAN</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+
+<span class="c1"># Setup BCM struct</span>
+<span class="k">def</span> <span class="nf">bcm_header_factory</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">alignment</span><span class="o">=</span><span class="mi">8</span><span class="p">):</span>
+    <span class="n">curr_stride</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">pad_index</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">fields</span><span class="p">:</span>
+        <span class="n">field_alignment</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">alignment</span><span class="p">(</span><span class="n">field</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">field_size</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">sizeof</span><span class="p">(</span><span class="n">field</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="c1"># If the current stride index isn&#39;t a multiple of the alignment</span>
+        <span class="c1"># requirements of this field, then we must add padding bytes until we</span>
+        <span class="c1"># are aligned</span>
+        <span class="k">while</span> <span class="n">curr_stride</span> <span class="o">%</span> <span class="n">field_alignment</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s2">&quot;pad_</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">pad_index</span><span class="p">),</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint8</span><span class="p">))</span>
+            <span class="n">pad_index</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">curr_stride</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="c1"># Now can it fit?</span>
+        <span class="c1"># Example: If this is 8 bytes and the type requires 4 bytes alignment</span>
+        <span class="c1"># then we can only fit when we&#39;re starting at 0. Otherwise, we will</span>
+        <span class="c1"># split across 2 strides.</span>
+        <span class="c1">#</span>
+        <span class="c1"># | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |</span>
+        <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">field</span><span class="p">)</span>
+        <span class="n">curr_stride</span> <span class="o">+=</span> <span class="n">field_size</span>
+
+    <span class="c1"># Add trailing padding to align to a multiple of the largest scalar member</span>
+    <span class="c1"># in the structure</span>
+    <span class="k">while</span> <span class="n">curr_stride</span> <span class="o">%</span> <span class="n">alignment</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s2">&quot;pad_</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">pad_index</span><span class="p">),</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint8</span><span class="p">))</span>
+        <span class="n">pad_index</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">curr_stride</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="s2">&quot;BcmMsgHead&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">ctypes</span><span class="o">.</span><span class="n">Structure</span><span class="p">,),</span> <span class="p">{</span><span class="s2">&quot;_fields_&quot;</span><span class="p">:</span> <span class="n">results</span><span class="p">})</span>
+
+<span class="c1"># The fields definition is taken from the C struct definitions in</span>
+<span class="c1"># &lt;linux/can/bcm.h&gt;</span>
+<span class="c1">#</span>
+<span class="c1">#     struct bcm_timeval {</span>
+<span class="c1">#     	long tv_sec;</span>
+<span class="c1">#     	long tv_usec;</span>
+<span class="c1">#     };</span>
+<span class="c1">#</span>
+<span class="c1">#     /**</span>
+<span class="c1">#      * struct bcm_msg_head - head of messages to/from the broadcast manager</span>
+<span class="c1">#      * @opcode:    opcode, see enum below.</span>
+<span class="c1">#      * @flags:     special flags, see below.</span>
+<span class="c1">#      * @count:     number of frames to send before changing interval.</span>
+<span class="c1">#      * @ival1:     interval for the first @count frames.</span>
+<span class="c1">#      * @ival2:     interval for the following frames.</span>
+<span class="c1">#      * @can_id:    CAN ID of frames to be sent or received.</span>
+<span class="c1">#      * @nframes:   number of frames appended to the message head.</span>
+<span class="c1">#      * @frames:    array of CAN frames.</span>
+<span class="c1">#      */</span>
+<span class="c1">#     struct bcm_msg_head {</span>
+<span class="c1">#     	__u32 opcode;</span>
+<span class="c1">#     	__u32 flags;</span>
+<span class="c1">#     	__u32 count;</span>
+<span class="c1">#     	struct bcm_timeval ival1, ival2;</span>
+<span class="c1">#     	canid_t can_id;</span>
+<span class="c1">#     	__u32 nframes;</span>
+<span class="c1">#     	struct can_frame frames[0];</span>
+<span class="c1">#     };</span>
+<span class="n">BcmMsgHead</span> <span class="o">=</span> <span class="n">bcm_header_factory</span><span class="p">(</span>
+    <span class="n">fields</span><span class="o">=</span><span class="p">[</span>
+        <span class="p">(</span><span class="s2">&quot;opcode&quot;</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint32</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;flags&quot;</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint32</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;count&quot;</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint32</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;ival1_tv_sec&quot;</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_long</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;ival1_tv_usec&quot;</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_long</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;ival2_tv_sec&quot;</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_long</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;ival2_tv_usec&quot;</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_long</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;can_id&quot;</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint32</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;nframes&quot;</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint32</span><span class="p">),</span>
+    <span class="p">]</span>
+<span class="p">)</span>
+
+
+<span class="c1"># struct module defines a binary packing format:</span>
+<span class="c1"># https://docs.python.org/3/library/struct.html#struct-format-strings</span>
+<span class="c1"># The 32bit can id is directly followed by the 8bit data link count</span>
+<span class="c1"># The data field is aligned on an 8 byte boundary, hence we add padding</span>
+<span class="c1"># which aligns the data field to an 8 byte boundary.</span>
+<span class="n">CAN_FRAME_HEADER_STRUCT</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">Struct</span><span class="p">(</span><span class="s2">&quot;=IBB2x&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">build_can_frame</span><span class="p">(</span><span class="n">msg</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot; CAN frame packing/unpacking (see &#39;struct can_frame&#39; in &lt;linux/can.h&gt;)</span>
+<span class="sd">    /**</span>
+<span class="sd">     * struct can_frame - basic CAN frame structure</span>
+<span class="sd">     * @can_id:  the CAN ID of the frame and CAN_*_FLAG flags, see above.</span>
+<span class="sd">     * @can_dlc: the data length field of the CAN frame</span>
+<span class="sd">     * @data:    the CAN frame payload.</span>
+<span class="sd">     */</span>
+<span class="sd">    struct can_frame {</span>
+<span class="sd">        canid_t can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */</span>
+<span class="sd">        __u8    can_dlc; /* data length code: 0 .. 8 */</span>
+<span class="sd">        __u8    data[8] __attribute__((aligned(8)));</span>
+<span class="sd">    };</span>
+
+<span class="sd">    /**</span>
+<span class="sd">    * struct canfd_frame - CAN flexible data rate frame structure</span>
+<span class="sd">    * @can_id: CAN ID of the frame and CAN_*_FLAG flags, see canid_t definition</span>
+<span class="sd">    * @len:    frame payload length in byte (0 .. CANFD_MAX_DLEN)</span>
+<span class="sd">    * @flags:  additional flags for CAN FD</span>
+<span class="sd">    * @__res0: reserved / padding</span>
+<span class="sd">    * @__res1: reserved / padding</span>
+<span class="sd">    * @data:   CAN FD frame payload (up to CANFD_MAX_DLEN byte)</span>
+<span class="sd">    */</span>
+<span class="sd">    struct canfd_frame {</span>
+<span class="sd">        canid_t can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */</span>
+<span class="sd">        __u8    len;     /* frame payload length in byte */</span>
+<span class="sd">        __u8    flags;   /* additional flags for CAN FD */</span>
+<span class="sd">        __u8    __res0;  /* reserved / padding */</span>
+<span class="sd">        __u8    __res1;  /* reserved / padding */</span>
+<span class="sd">        __u8    data[CANFD_MAX_DLEN] __attribute__((aligned(8)));</span>
+<span class="sd">    };</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">can_id</span> <span class="o">=</span> <span class="n">_add_flags_to_can_id</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+    <span class="n">flags</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">bitrate_switch</span><span class="p">:</span>
+        <span class="n">flags</span> <span class="o">|=</span> <span class="n">CANFD_BRS</span>
+    <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">error_state_indicator</span><span class="p">:</span>
+        <span class="n">flags</span> <span class="o">|=</span> <span class="n">CANFD_ESI</span>
+    <span class="n">max_len</span> <span class="o">=</span> <span class="mi">64</span> <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_fd</span> <span class="k">else</span> <span class="mi">8</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="nb">bytes</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="n">ljust</span><span class="p">(</span><span class="n">max_len</span><span class="p">,</span> <span class="sa">b</span><span class="s1">&#39;</span><span class="se">\x00</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">CAN_FRAME_HEADER_STRUCT</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="n">can_id</span><span class="p">,</span> <span class="n">msg</span><span class="o">.</span><span class="n">dlc</span><span class="p">,</span> <span class="n">flags</span><span class="p">)</span> <span class="o">+</span> <span class="n">data</span>
+
+
+<span class="k">def</span> <span class="nf">build_bcm_header</span><span class="p">(</span>
+    <span class="n">opcode</span><span class="p">,</span>
+    <span class="n">flags</span><span class="p">,</span>
+    <span class="n">count</span><span class="p">,</span>
+    <span class="n">ival1_seconds</span><span class="p">,</span>
+    <span class="n">ival1_usec</span><span class="p">,</span>
+    <span class="n">ival2_seconds</span><span class="p">,</span>
+    <span class="n">ival2_usec</span><span class="p">,</span>
+    <span class="n">can_id</span><span class="p">,</span>
+    <span class="n">nframes</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">BcmMsgHead</span><span class="p">(</span>
+        <span class="n">opcode</span><span class="o">=</span><span class="n">opcode</span><span class="p">,</span>
+        <span class="n">flags</span><span class="o">=</span><span class="n">flags</span><span class="p">,</span>
+        <span class="n">count</span><span class="o">=</span><span class="n">count</span><span class="p">,</span>
+        <span class="n">ival1_tv_sec</span><span class="o">=</span><span class="n">ival1_seconds</span><span class="p">,</span>
+        <span class="n">ival1_tv_usec</span><span class="o">=</span><span class="n">ival1_usec</span><span class="p">,</span>
+        <span class="n">ival2_tv_sec</span><span class="o">=</span><span class="n">ival2_seconds</span><span class="p">,</span>
+        <span class="n">ival2_tv_usec</span><span class="o">=</span><span class="n">ival2_usec</span><span class="p">,</span>
+        <span class="n">can_id</span><span class="o">=</span><span class="n">can_id</span><span class="p">,</span>
+        <span class="n">nframes</span><span class="o">=</span><span class="n">nframes</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">string_at</span><span class="p">(</span><span class="n">ctypes</span><span class="o">.</span><span class="n">addressof</span><span class="p">(</span><span class="n">result</span><span class="p">),</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">sizeof</span><span class="p">(</span><span class="n">result</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">build_bcm_tx_delete_header</span><span class="p">(</span><span class="n">can_id</span><span class="p">,</span> <span class="n">flags</span><span class="p">):</span>
+    <span class="n">opcode</span> <span class="o">=</span> <span class="n">CAN_BCM_TX_DELETE</span>
+    <span class="k">return</span> <span class="n">build_bcm_header</span><span class="p">(</span><span class="n">opcode</span><span class="p">,</span> <span class="n">flags</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">can_id</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">build_bcm_transmit_header</span><span class="p">(</span><span class="n">can_id</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="n">initial_period</span><span class="p">,</span> <span class="n">subsequent_period</span><span class="p">,</span>
+                              <span class="n">msg_flags</span><span class="p">):</span>
+    <span class="n">opcode</span> <span class="o">=</span> <span class="n">CAN_BCM_TX_SETUP</span>
+
+    <span class="n">flags</span> <span class="o">=</span> <span class="n">msg_flags</span> <span class="o">|</span> <span class="n">SETTIMER</span> <span class="o">|</span> <span class="n">STARTTIMER</span>
+
+    <span class="k">if</span> <span class="n">initial_period</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># Note `TX_COUNTEVT` creates the message TX_EXPIRED when count expires</span>
+        <span class="n">flags</span> <span class="o">|=</span> <span class="n">TX_COUNTEVT</span>
+
+    <span class="k">def</span> <span class="nf">split_time</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Given seconds as a float, return whole seconds and microseconds&quot;&quot;&quot;</span>
+        <span class="n">seconds</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="n">microseconds</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mf">1e6</span> <span class="o">*</span> <span class="p">(</span><span class="n">value</span> <span class="o">-</span> <span class="n">seconds</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">seconds</span><span class="p">,</span> <span class="n">microseconds</span>
+
+    <span class="n">ival1_seconds</span><span class="p">,</span> <span class="n">ival1_usec</span> <span class="o">=</span> <span class="n">split_time</span><span class="p">(</span><span class="n">initial_period</span><span class="p">)</span>
+    <span class="n">ival2_seconds</span><span class="p">,</span> <span class="n">ival2_usec</span> <span class="o">=</span> <span class="n">split_time</span><span class="p">(</span><span class="n">subsequent_period</span><span class="p">)</span>
+    <span class="n">nframes</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="k">return</span> <span class="n">build_bcm_header</span><span class="p">(</span><span class="n">opcode</span><span class="p">,</span> <span class="n">flags</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="n">ival1_seconds</span><span class="p">,</span> <span class="n">ival1_usec</span><span class="p">,</span> <span class="n">ival2_seconds</span><span class="p">,</span> <span class="n">ival2_usec</span><span class="p">,</span> <span class="n">can_id</span><span class="p">,</span> <span class="n">nframes</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">build_bcm_update_header</span><span class="p">(</span><span class="n">can_id</span><span class="p">,</span> <span class="n">msg_flags</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">build_bcm_header</span><span class="p">(</span><span class="n">CAN_BCM_TX_SETUP</span><span class="p">,</span> <span class="n">msg_flags</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">can_id</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">dissect_can_frame</span><span class="p">(</span><span class="n">frame</span><span class="p">):</span>
+    <span class="n">can_id</span><span class="p">,</span> <span class="n">can_dlc</span><span class="p">,</span> <span class="n">flags</span> <span class="o">=</span> <span class="n">CAN_FRAME_HEADER_STRUCT</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span> <span class="o">!=</span> <span class="n">CANFD_MTU</span><span class="p">:</span>
+        <span class="c1"># Flags not valid in non-FD frames</span>
+        <span class="n">flags</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">return</span> <span class="n">can_id</span><span class="p">,</span> <span class="n">can_dlc</span><span class="p">,</span> <span class="n">flags</span><span class="p">,</span> <span class="n">frame</span><span class="p">[</span><span class="mi">8</span><span class="p">:</span><span class="mi">8</span><span class="o">+</span><span class="n">can_dlc</span><span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">create_bcm_socket</span><span class="p">(</span><span class="n">channel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;create a broadcast manager socket and connect to the given interface&quot;&quot;&quot;</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">socket</span><span class="o">.</span><span class="n">socket</span><span class="p">(</span><span class="n">PF_CAN</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="n">SOCK_DGRAM</span><span class="p">,</span> <span class="n">CAN_BCM</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">HAS_NATIVE_SUPPORT</span><span class="p">:</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">connect</span><span class="p">((</span><span class="n">channel</span><span class="p">,))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">addr</span> <span class="o">=</span> <span class="n">get_addr</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">channel</span><span class="p">)</span>
+        <span class="n">libc</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">fileno</span><span class="p">(),</span> <span class="n">addr</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">addr</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">s</span>
+
+
+<span class="k">def</span> <span class="nf">send_bcm</span><span class="p">(</span><span class="n">bcm_socket</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Send raw frame to a BCM socket and handle errors.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">bcm_socket</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">base</span> <span class="o">=</span> <span class="s2">&quot;Couldn&#39;t send CAN BCM frame. OS Error </span><span class="si">{}</span><span class="s2">: </span><span class="si">{}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">errno</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">strerror</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">errno</span> <span class="o">==</span> <span class="n">errno</span><span class="o">.</span><span class="n">EINVAL</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">can</span><span class="o">.</span><span class="n">CanError</span><span class="p">(</span><span class="n">base</span> <span class="o">+</span> <span class="s2">&quot;You are probably referring to a non-existing frame.&quot;</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="n">e</span><span class="o">.</span><span class="n">errno</span> <span class="o">==</span> <span class="n">errno</span><span class="o">.</span><span class="n">ENETDOWN</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">can</span><span class="o">.</span><span class="n">CanError</span><span class="p">(</span><span class="n">base</span> <span class="o">+</span> <span class="s2">&quot;The CAN interface appears to be down.&quot;</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="n">e</span><span class="o">.</span><span class="n">errno</span> <span class="o">==</span> <span class="n">errno</span><span class="o">.</span><span class="n">EBADF</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">can</span><span class="o">.</span><span class="n">CanError</span><span class="p">(</span><span class="n">base</span> <span class="o">+</span> <span class="s2">&quot;The CAN socket appears to be closed.&quot;</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">e</span>
+
+
+<span class="k">def</span> <span class="nf">_add_flags_to_can_id</span><span class="p">(</span><span class="n">message</span><span class="p">):</span>
+    <span class="n">can_id</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">arbitration_id</span>
+    <span class="k">if</span> <span class="n">message</span><span class="o">.</span><span class="n">is_extended_id</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;sending an extended id type message&quot;</span><span class="p">)</span>
+        <span class="n">can_id</span> <span class="o">|=</span> <span class="n">CAN_EFF_FLAG</span>
+    <span class="k">if</span> <span class="n">message</span><span class="o">.</span><span class="n">is_remote_frame</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;requesting a remote frame&quot;</span><span class="p">)</span>
+        <span class="n">can_id</span> <span class="o">|=</span> <span class="n">CAN_RTR_FLAG</span>
+    <span class="k">if</span> <span class="n">message</span><span class="o">.</span><span class="n">is_error_frame</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;sending error frame&quot;</span><span class="p">)</span>
+        <span class="n">can_id</span> <span class="o">|=</span> <span class="n">CAN_ERR_FLAG</span>
+
+    <span class="k">return</span> <span class="n">can_id</span>
+
+
+<div class="viewcode-block" id="CyclicSendTask"><a class="viewcode-back" href="../../../../interfaces/socketcan.html#can.interfaces.socketcan.CyclicSendTask">[docs]</a><span class="k">class</span> <span class="nc">CyclicSendTask</span><span class="p">(</span><span class="n">LimitedDurationCyclicSendTaskABC</span><span class="p">,</span>
+                     <span class="n">ModifiableCyclicTaskABC</span><span class="p">,</span> <span class="n">RestartableCyclicTaskABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A socketcan cyclic send task supports:</span>
+
+<span class="sd">        - setting of a task duration</span>
+<span class="sd">        - modifying the data</span>
+<span class="sd">        - stopping then subsequent restarting of the task</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bcm_socket</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">period</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param bcm_socket: An open bcm socket on the desired CAN channel.</span>
+<span class="sd">        :param can.Message message: The message to be sent periodically.</span>
+<span class="sd">        :param float period: The rate in seconds at which to send the message.</span>
+<span class="sd">        :param float duration: Approximate duration in seconds to send the message.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">CyclicSendTask</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">period</span><span class="p">,</span> <span class="n">duration</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bcm_socket</span> <span class="o">=</span> <span class="n">bcm_socket</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">duration</span> <span class="o">=</span> <span class="n">duration</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tx_setup</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="n">message</span>
+
+    <span class="k">def</span> <span class="nf">_tx_setup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+
+        <span class="c1"># Create a low level packed frame to pass to the kernel</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">can_id_with_flags</span> <span class="o">=</span> <span class="n">_add_flags_to_can_id</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">flags</span> <span class="o">=</span> <span class="n">CAN_FD_FRAME</span> <span class="k">if</span> <span class="n">message</span><span class="o">.</span><span class="n">is_fd</span> <span class="k">else</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">duration</span><span class="p">:</span>
+            <span class="n">count</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">duration</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">period</span><span class="p">)</span>
+            <span class="n">ival1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">period</span>
+            <span class="n">ival2</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">ival1</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">ival2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">period</span>
+
+        <span class="c1"># First do a TX_READ before creating a new task, and check if we get</span>
+        <span class="c1"># EINVAL. If so, then we are referring to a CAN message with the same</span>
+        <span class="c1"># ID</span>
+        <span class="n">check_header</span> <span class="o">=</span> <span class="n">build_bcm_header</span><span class="p">(</span>
+            <span class="n">opcode</span><span class="o">=</span><span class="n">CAN_BCM_TX_READ</span><span class="p">,</span>
+            <span class="n">flags</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="n">count</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="n">ival1_seconds</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="n">ival1_usec</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="n">ival2_seconds</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="n">ival2_usec</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="n">can_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">can_id_with_flags</span><span class="p">,</span>
+            <span class="n">nframes</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bcm_socket</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">check_header</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="n">error</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">errno</span> <span class="o">!=</span> <span class="n">errno</span><span class="o">.</span><span class="n">EINVAL</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">e</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;A periodic Task for Arbitration ID </span><span class="si">{}</span><span class="s2"> has already been created&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">message</span><span class="o">.</span><span class="n">arbitration_id</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="n">header</span> <span class="o">=</span> <span class="n">build_bcm_transmit_header</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">can_id_with_flags</span><span class="p">,</span>
+            <span class="n">count</span><span class="p">,</span>
+            <span class="n">ival1</span><span class="p">,</span>
+            <span class="n">ival2</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">flags</span>
+        <span class="p">)</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="n">build_can_frame</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Sending BCM command&quot;</span><span class="p">)</span>
+        <span class="n">send_bcm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bcm_socket</span><span class="p">,</span> <span class="n">header</span> <span class="o">+</span> <span class="n">frame</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Send a TX_DELETE message to cancel this task.</span>
+
+<span class="sd">        This will delete the entry for the transmission of the CAN-message</span>
+<span class="sd">        with the specified can_id CAN identifier. The message length for the command</span>
+<span class="sd">        TX_DELETE is {[bcm_msg_head]} (only the header).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Stopping periodic task&quot;</span><span class="p">)</span>
+
+        <span class="n">stopframe</span> <span class="o">=</span> <span class="n">build_bcm_tx_delete_header</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">can_id_with_flags</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">flags</span><span class="p">)</span>
+        <span class="n">send_bcm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bcm_socket</span><span class="p">,</span> <span class="n">stopframe</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">modify_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update the contents of this periodically sent message.</span>
+
+<span class="sd">        Note the Message must have the same :attr:`~can.Message.arbitration_id`</span>
+<span class="sd">        like the first message.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="n">message</span><span class="o">.</span><span class="n">arbitration_id</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">can_id</span><span class="p">,</span> <span class="s2">&quot;You cannot modify the can identifier&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="n">message</span>
+        <span class="n">header</span> <span class="o">=</span> <span class="n">build_bcm_update_header</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">can_id_with_flags</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">flags</span><span class="p">)</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="n">build_can_frame</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="n">send_bcm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bcm_socket</span><span class="p">,</span> <span class="n">header</span> <span class="o">+</span> <span class="n">frame</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tx_setup</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="p">)</span></div>
+
+
+<span class="k">class</span> <span class="nc">MultiRateCyclicSendTask</span><span class="p">(</span><span class="n">CyclicSendTask</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Exposes more of the full power of the TX_SETUP opcode.</span>
+
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="n">initial_period</span><span class="p">,</span> <span class="n">subsequent_period</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">MultiRateCyclicSendTask</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">subsequent_period</span><span class="p">)</span>
+
+        <span class="c1"># Create a low level packed frame to pass to the kernel</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="n">build_can_frame</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="n">header</span> <span class="o">=</span> <span class="n">build_bcm_transmit_header</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">can_id_with_flags</span><span class="p">,</span>
+            <span class="n">count</span><span class="p">,</span>
+            <span class="n">initial_period</span><span class="p">,</span>
+            <span class="n">subsequent_period</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">flags</span><span class="p">)</span>
+
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Sending BCM TX_SETUP command&quot;</span><span class="p">)</span>
+        <span class="n">send_bcm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bcm_socket</span><span class="p">,</span> <span class="n">header</span> <span class="o">+</span> <span class="n">frame</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">create_socket</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Creates a raw CAN socket. The socket will</span>
+<span class="sd">    be returned unbound to any interface.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sock</span> <span class="o">=</span> <span class="n">socket</span><span class="o">.</span><span class="n">socket</span><span class="p">(</span><span class="n">PF_CAN</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="n">SOCK_RAW</span><span class="p">,</span> <span class="n">CAN_RAW</span><span class="p">)</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Created a socket&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">sock</span>
+
+
+<span class="k">def</span> <span class="nf">bind_socket</span><span class="p">(</span><span class="n">sock</span><span class="p">,</span> <span class="n">channel</span><span class="o">=</span><span class="s1">&#39;can0&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Binds the given socket to the given interface.</span>
+
+<span class="sd">    :param socket.socket sock:</span>
+<span class="sd">        The socket to be bound</span>
+<span class="sd">    :raises OSError:</span>
+<span class="sd">        If the specified interface isn&#39;t found.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Binding socket to channel=</span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">channel</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">HAS_NATIVE_SUPPORT</span><span class="p">:</span>
+        <span class="n">sock</span><span class="o">.</span><span class="n">bind</span><span class="p">((</span><span class="n">channel</span><span class="p">,))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># For Python 2.7</span>
+        <span class="n">addr</span> <span class="o">=</span> <span class="n">get_addr</span><span class="p">(</span><span class="n">sock</span><span class="p">,</span> <span class="n">channel</span><span class="p">)</span>
+        <span class="n">libc</span><span class="o">.</span><span class="n">bind</span><span class="p">(</span><span class="n">sock</span><span class="o">.</span><span class="n">fileno</span><span class="p">(),</span> <span class="n">addr</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">addr</span><span class="p">))</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Bound socket.&#39;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">capture_message</span><span class="p">(</span><span class="n">sock</span><span class="p">,</span> <span class="n">get_channel</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Captures a message from given socket.</span>
+
+<span class="sd">    :param socket.socket sock:</span>
+<span class="sd">        The socket to read a message from.</span>
+<span class="sd">    :param bool get_channel:</span>
+<span class="sd">        Find out which channel the message comes from.</span>
+
+<span class="sd">    :return: The received message, or None on failure.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Fetching the Arb ID, DLC and Data</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">get_channel</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">HAS_NATIVE_SUPPORT</span><span class="p">:</span>
+                <span class="n">cf</span><span class="p">,</span> <span class="n">addr</span> <span class="o">=</span> <span class="n">sock</span><span class="o">.</span><span class="n">recvfrom</span><span class="p">(</span><span class="n">CANFD_MTU</span><span class="p">)</span>
+                <span class="n">channel</span> <span class="o">=</span> <span class="n">addr</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">addr</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="k">else</span> <span class="n">addr</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">create_string_buffer</span><span class="p">(</span><span class="n">CANFD_MTU</span><span class="p">)</span>
+                <span class="n">addr</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">create_string_buffer</span><span class="p">(</span><span class="mi">32</span><span class="p">)</span>
+                <span class="n">addrlen</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">addr</span><span class="p">))</span>
+                <span class="n">received</span> <span class="o">=</span> <span class="n">libc</span><span class="o">.</span><span class="n">recvfrom</span><span class="p">(</span><span class="n">sock</span><span class="o">.</span><span class="n">fileno</span><span class="p">(),</span> <span class="n">data</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span>
+                                         <span class="n">addr</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">byref</span><span class="p">(</span><span class="n">addrlen</span><span class="p">))</span>
+                <span class="n">cf</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">raw</span><span class="p">[:</span><span class="n">received</span><span class="p">]</span>
+                <span class="c1"># Figure out the channel name</span>
+                <span class="n">family</span><span class="p">,</span> <span class="n">ifindex</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="s2">&quot;Hi&quot;</span><span class="p">,</span> <span class="n">addr</span><span class="o">.</span><span class="n">raw</span><span class="p">)</span>
+                <span class="k">assert</span> <span class="n">family</span> <span class="o">==</span> <span class="n">AF_CAN</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s2">&quot;16xi&quot;</span><span class="p">,</span> <span class="n">ifindex</span><span class="p">)</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="n">fcntl</span><span class="o">.</span><span class="n">ioctl</span><span class="p">(</span><span class="n">sock</span><span class="p">,</span> <span class="n">SIOCGIFNAME</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+                <span class="n">channel</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">create_string_buffer</span><span class="p">(</span><span class="n">res</span><span class="p">)</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">cf</span> <span class="o">=</span> <span class="n">sock</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="n">CANFD_MTU</span><span class="p">)</span>
+            <span class="n">channel</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">except</span> <span class="n">socket</span><span class="o">.</span><span class="n">error</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">can</span><span class="o">.</span><span class="n">CanError</span><span class="p">(</span><span class="s2">&quot;Error receiving: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">exc</span><span class="p">)</span>
+
+    <span class="n">can_id</span><span class="p">,</span> <span class="n">can_dlc</span><span class="p">,</span> <span class="n">flags</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">dissect_can_frame</span><span class="p">(</span><span class="n">cf</span><span class="p">)</span>
+    <span class="c1">#log.debug(&#39;Received: can_id=%x, can_dlc=%x, data=%s&#39;, can_id, can_dlc, data)</span>
+
+    <span class="c1"># Fetching the timestamp</span>
+    <span class="n">binary_structure</span> <span class="o">=</span> <span class="s2">&quot;@LL&quot;</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">fcntl</span><span class="o">.</span><span class="n">ioctl</span><span class="p">(</span><span class="n">sock</span><span class="p">,</span> <span class="n">SIOCGSTAMP</span><span class="p">,</span> <span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="n">binary_structure</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+
+    <span class="n">seconds</span><span class="p">,</span> <span class="n">microseconds</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="n">binary_structure</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+    <span class="n">timestamp</span> <span class="o">=</span> <span class="n">seconds</span> <span class="o">+</span> <span class="n">microseconds</span> <span class="o">*</span> <span class="mf">1e-6</span>
+
+    <span class="c1"># EXT, RTR, ERR flags -&gt; boolean attributes</span>
+    <span class="c1">#   /* special address description flags for the CAN_ID */</span>
+    <span class="c1">#   #define CAN_EFF_FLAG 0x80000000U /* EFF/SFF is set in the MSB */</span>
+    <span class="c1">#   #define CAN_RTR_FLAG 0x40000000U /* remote transmission request */</span>
+    <span class="c1">#   #define CAN_ERR_FLAG 0x20000000U /* error frame */</span>
+    <span class="n">is_extended_frame_format</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">can_id</span> <span class="o">&amp;</span> <span class="n">CAN_EFF_FLAG</span><span class="p">)</span>
+    <span class="n">is_remote_transmission_request</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">can_id</span> <span class="o">&amp;</span> <span class="n">CAN_RTR_FLAG</span><span class="p">)</span>
+    <span class="n">is_error_frame</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">can_id</span> <span class="o">&amp;</span> <span class="n">CAN_ERR_FLAG</span><span class="p">)</span>
+    <span class="n">is_fd</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">cf</span><span class="p">)</span> <span class="o">==</span> <span class="n">CANFD_MTU</span>
+    <span class="n">bitrate_switch</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">flags</span> <span class="o">&amp;</span> <span class="n">CANFD_BRS</span><span class="p">)</span>
+    <span class="n">error_state_indicator</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">flags</span> <span class="o">&amp;</span> <span class="n">CANFD_ESI</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">is_extended_frame_format</span><span class="p">:</span>
+        <span class="c1">#log.debug(&quot;CAN: Extended&quot;)</span>
+        <span class="c1"># TODO does this depend on SFF or EFF?</span>
+        <span class="n">arbitration_id</span> <span class="o">=</span> <span class="n">can_id</span> <span class="o">&amp;</span> <span class="mh">0x1FFFFFFF</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1">#log.debug(&quot;CAN: Standard&quot;)</span>
+        <span class="n">arbitration_id</span> <span class="o">=</span> <span class="n">can_id</span> <span class="o">&amp;</span> <span class="mh">0x000007FF</span>
+
+    <span class="n">msg</span> <span class="o">=</span> <span class="n">Message</span><span class="p">(</span><span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span><span class="p">,</span>
+                  <span class="n">channel</span><span class="o">=</span><span class="n">channel</span><span class="p">,</span>
+                  <span class="n">arbitration_id</span><span class="o">=</span><span class="n">arbitration_id</span><span class="p">,</span>
+                  <span class="n">is_extended_id</span><span class="o">=</span><span class="n">is_extended_frame_format</span><span class="p">,</span>
+                  <span class="n">is_remote_frame</span><span class="o">=</span><span class="n">is_remote_transmission_request</span><span class="p">,</span>
+                  <span class="n">is_error_frame</span><span class="o">=</span><span class="n">is_error_frame</span><span class="p">,</span>
+                  <span class="n">is_fd</span><span class="o">=</span><span class="n">is_fd</span><span class="p">,</span>
+                  <span class="n">bitrate_switch</span><span class="o">=</span><span class="n">bitrate_switch</span><span class="p">,</span>
+                  <span class="n">error_state_indicator</span><span class="o">=</span><span class="n">error_state_indicator</span><span class="p">,</span>
+                  <span class="n">dlc</span><span class="o">=</span><span class="n">can_dlc</span><span class="p">,</span>
+                  <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+
+    <span class="c1">#log_rx.debug(&#39;Received: %s&#39;, msg)</span>
+
+    <span class="k">return</span> <span class="n">msg</span>
+
+
+<div class="viewcode-block" id="SocketcanBus"><a class="viewcode-back" href="../../../../interfaces/socketcan.html#can.interfaces.socketcan.SocketcanBus">[docs]</a><span class="k">class</span> <span class="nc">SocketcanBus</span><span class="p">(</span><span class="n">BusABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Implements :meth:`can.BusABC._detect_available_configs`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">receive_own_messages</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">fd</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param str channel:</span>
+<span class="sd">            The can interface name with which to create this bus. An example channel</span>
+<span class="sd">            would be &#39;vcan0&#39; or &#39;can0&#39;.</span>
+<span class="sd">            An empty string &#39;&#39; will receive messages from all channels.</span>
+<span class="sd">            In that case any sent messages must be explicitly addressed to a</span>
+<span class="sd">            channel using :attr:`can.Message.channel`.</span>
+<span class="sd">        :param bool receive_own_messages:</span>
+<span class="sd">            If transmitted messages should also be received by this bus.</span>
+<span class="sd">        :param bool fd:</span>
+<span class="sd">            If CAN-FD frames should be supported.</span>
+<span class="sd">        :param list can_filters:</span>
+<span class="sd">            See :meth:`can.BusABC.set_filters`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">socket</span> <span class="o">=</span> <span class="n">create_socket</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">channel</span> <span class="o">=</span> <span class="n">channel</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">channel_info</span> <span class="o">=</span> <span class="s2">&quot;socketcan channel &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="n">channel</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_bcm_sockets</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># set the receive_own_messages parameter</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">setsockopt</span><span class="p">(</span><span class="n">SOL_CAN_RAW</span><span class="p">,</span>
+                                   <span class="n">CAN_RAW_RECV_OWN_MSGS</span><span class="p">,</span>
+                                   <span class="mi">1</span> <span class="k">if</span> <span class="n">receive_own_messages</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">socket</span><span class="o">.</span><span class="n">error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Could not receive own messages (</span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">fd</span><span class="p">:</span>
+            <span class="c1"># TODO handle errors</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">setsockopt</span><span class="p">(</span><span class="n">SOL_CAN_RAW</span><span class="p">,</span>
+                                   <span class="n">CAN_RAW_FD_FRAMES</span><span class="p">,</span>
+                                   <span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># Enable error frames</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">setsockopt</span><span class="p">(</span><span class="n">SOL_CAN_RAW</span><span class="p">,</span>
+                               <span class="n">CAN_RAW_ERR_FILTER</span><span class="p">,</span>
+                               <span class="mh">0x1FFFFFFF</span><span class="p">)</span>
+
+        <span class="n">bind_socket</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="p">,</span> <span class="n">channel</span><span class="p">)</span>
+        <span class="n">kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s1">&#39;receive_own_messages&#39;</span><span class="p">:</span> <span class="n">receive_own_messages</span><span class="p">,</span> <span class="s1">&#39;fd&#39;</span><span class="p">:</span> <span class="n">fd</span><span class="p">})</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">SocketcanBus</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">channel</span><span class="o">=</span><span class="n">channel</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Stops all active periodic tasks and closes the socket.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stop_all_periodic_tasks</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">channel</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bcm_sockets</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Closing bcm socket for channel </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">channel</span><span class="p">))</span>
+            <span class="n">bcm_socket</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bcm_sockets</span><span class="p">[</span><span class="n">channel</span><span class="p">]</span>
+            <span class="n">bcm_socket</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Closing raw can socket&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_recv_internal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="p">):</span>
+        <span class="c1"># get all sockets that are ready (can be a list with a single value</span>
+        <span class="c1"># being self.socket or an empty list if self.socket is not ready)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># get all sockets that are ready (can be a list with a single value</span>
+            <span class="c1"># being self.socket or an empty list if self.socket is not ready)</span>
+            <span class="n">ready_receive_sockets</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">select</span><span class="o">.</span><span class="n">select</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="p">],</span> <span class="p">[],</span> <span class="p">[],</span> <span class="n">timeout</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">socket</span><span class="o">.</span><span class="n">error</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="c1"># something bad happened (e.g. the interface went down)</span>
+            <span class="k">raise</span> <span class="n">can</span><span class="o">.</span><span class="n">CanError</span><span class="p">(</span><span class="s2">&quot;Failed to receive: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">exc</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">ready_receive_sockets</span><span class="p">:</span> <span class="c1"># not empty or True</span>
+            <span class="n">get_channel</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">channel</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="n">capture_message</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="p">,</span> <span class="n">get_channel</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">msg</span><span class="o">.</span><span class="n">channel</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">:</span>
+                <span class="c1"># Default to our own channel</span>
+                <span class="n">msg</span><span class="o">.</span><span class="n">channel</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">channel</span>
+            <span class="k">return</span> <span class="n">msg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_filtered</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># socket wasn&#39;t readable or timeout occurred</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_filtered</span>
+
+    <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Transmit a message to the CAN bus.</span>
+
+<span class="sd">        :param can.Message msg: A message object.</span>
+<span class="sd">        :param float timeout:</span>
+<span class="sd">            Wait up to this many seconds for the transmit queue to be ready.</span>
+<span class="sd">            If not given, the call may fail immediately.</span>
+
+<span class="sd">        :raises can.CanError:</span>
+<span class="sd">            if the message could not be written.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;We&#39;ve been asked to write a message to the bus&quot;</span><span class="p">)</span>
+        <span class="n">logger_tx</span> <span class="o">=</span> <span class="n">log</span><span class="o">.</span><span class="n">getChild</span><span class="p">(</span><span class="s2">&quot;tx&quot;</span><span class="p">)</span>
+        <span class="n">logger_tx</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;sending: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span>
+
+        <span class="n">started</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="c1"># If no timeout is given, poll for availability</span>
+        <span class="k">if</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">timeout</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">time_left</span> <span class="o">=</span> <span class="n">timeout</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">build_can_frame</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+        <span class="k">while</span> <span class="n">time_left</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Wait for write availability</span>
+            <span class="n">ready</span> <span class="o">=</span> <span class="n">select</span><span class="o">.</span><span class="n">select</span><span class="p">([],</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="p">],</span> <span class="p">[],</span> <span class="n">time_left</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">ready</span><span class="p">:</span>
+                <span class="c1"># Timeout</span>
+                <span class="k">break</span>
+            <span class="n">sent</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send_once</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">msg</span><span class="o">.</span><span class="n">channel</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">sent</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+                <span class="k">return</span>
+            <span class="c1"># Not all data were sent, try again with remaining data</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">sent</span><span class="p">:]</span>
+            <span class="n">time_left</span> <span class="o">=</span> <span class="n">timeout</span> <span class="o">-</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">started</span><span class="p">)</span>
+
+        <span class="k">raise</span> <span class="n">can</span><span class="o">.</span><span class="n">CanError</span><span class="p">(</span><span class="s2">&quot;Transmit buffer full&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_send_once</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">channel</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">channel</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span> <span class="ow">and</span> <span class="n">channel</span><span class="p">:</span>
+                <span class="c1"># Message must be addressed to a specific channel</span>
+                <span class="k">if</span> <span class="n">HAS_NATIVE_SUPPORT</span><span class="p">:</span>
+                    <span class="n">sent</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">sendto</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="p">))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">addr</span> <span class="o">=</span> <span class="n">get_addr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="p">,</span> <span class="n">channel</span><span class="p">)</span>
+                    <span class="n">sent</span> <span class="o">=</span> <span class="n">libc</span><span class="o">.</span><span class="n">sendto</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">fileno</span><span class="p">(),</span>
+                                       <span class="n">data</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span>
+                                       <span class="n">addr</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">addr</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">sent</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">socket</span><span class="o">.</span><span class="n">error</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">can</span><span class="o">.</span><span class="n">CanError</span><span class="p">(</span><span class="s2">&quot;Failed to transmit: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">exc</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">sent</span>
+
+    <span class="k">def</span> <span class="nf">_send_periodic_internal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">period</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Start sending a message at a given period on this bus.</span>
+
+<span class="sd">        The kernel&#39;s broadcast manager will be used.</span>
+
+<span class="sd">        :param can.Message msg:</span>
+<span class="sd">            Message to transmit</span>
+<span class="sd">        :param float period:</span>
+<span class="sd">            Period in seconds between each message</span>
+<span class="sd">        :param float duration:</span>
+<span class="sd">            The duration to keep sending this message at given rate. If</span>
+<span class="sd">            no duration is provided, the task will continue indefinitely.</span>
+
+<span class="sd">        :return:</span>
+<span class="sd">            A started task instance. This can be used to modify the data,</span>
+<span class="sd">            pause/resume the transmission and to stop the transmission.</span>
+<span class="sd">        :rtype: can.interfaces.socketcan.CyclicSendTask</span>
+
+<span class="sd">        .. note::</span>
+
+<span class="sd">            Note the duration before the message stops being sent may not</span>
+<span class="sd">            be exactly the same as the duration specified by the user. In</span>
+<span class="sd">            general the message will be sent at the given rate until at</span>
+<span class="sd">            least *duration* seconds.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">bcm_socket</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_bcm_socket</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">channel</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">)</span>
+        <span class="n">task</span> <span class="o">=</span> <span class="n">CyclicSendTask</span><span class="p">(</span><span class="n">bcm_socket</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">period</span><span class="p">,</span> <span class="n">duration</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">task</span>
+
+    <span class="k">def</span> <span class="nf">_get_bcm_socket</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">channel</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bcm_sockets</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_bcm_sockets</span><span class="p">[</span><span class="n">channel</span><span class="p">]</span> <span class="o">=</span> <span class="n">create_bcm_socket</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bcm_sockets</span><span class="p">[</span><span class="n">channel</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">_apply_filters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filters</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">setsockopt</span><span class="p">(</span><span class="n">SOL_CAN_RAW</span><span class="p">,</span>
+                                   <span class="n">CAN_RAW_FILTER</span><span class="p">,</span>
+                                   <span class="n">pack_filters</span><span class="p">(</span><span class="n">filters</span><span class="p">))</span>
+        <span class="k">except</span> <span class="n">socket</span><span class="o">.</span><span class="n">error</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+            <span class="c1"># fall back to &quot;software filtering&quot; (= not in kernel)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_is_filtered</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="c1"># TODO Is this serious enough to raise a CanError exception?</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;Setting filters failed; falling back to software filtering (not in kernel): </span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_is_filtered</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="nf">fileno</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="o">.</span><span class="n">fileno</span><span class="p">()</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_detect_available_configs</span><span class="p">():</span>
+        <span class="k">return</span> <span class="p">[{</span><span class="s1">&#39;interface&#39;</span><span class="p">:</span> <span class="s1">&#39;socketcan&#39;</span><span class="p">,</span> <span class="s1">&#39;channel&#39;</span><span class="p">:</span> <span class="n">channel</span><span class="p">}</span>
+                <span class="k">for</span> <span class="n">channel</span> <span class="ow">in</span> <span class="n">find_available_interfaces</span><span class="p">()]</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="c1"># TODO move below to examples?</span>
+
+    <span class="c1"># Create two sockets on vcan0 to test send and receive</span>
+    <span class="c1">#</span>
+    <span class="c1"># If you want to try it out you can do the following (possibly using sudo):</span>
+    <span class="c1">#</span>
+    <span class="c1">#     modprobe vcan</span>
+    <span class="c1">#     ip link add dev vcan0 type vcan</span>
+    <span class="c1">#     ifconfig vcan0 up</span>
+    <span class="c1">#</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">receiver</span><span class="p">(</span><span class="n">event</span><span class="p">):</span>
+        <span class="n">receiver_socket</span> <span class="o">=</span> <span class="n">create_socket</span><span class="p">()</span>
+        <span class="n">bind_socket</span><span class="p">(</span><span class="n">receiver_socket</span><span class="p">,</span> <span class="s1">&#39;vcan0&#39;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Receiver is waiting for a message...&quot;</span><span class="p">)</span>
+        <span class="n">event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Receiver got: &quot;</span><span class="p">,</span> <span class="n">capture_message</span><span class="p">(</span><span class="n">receiver_socket</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">sender</span><span class="p">(</span><span class="n">event</span><span class="p">):</span>
+        <span class="n">event</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
+        <span class="n">sender_socket</span> <span class="o">=</span> <span class="n">create_socket</span><span class="p">()</span>
+        <span class="n">bind_socket</span><span class="p">(</span><span class="n">sender_socket</span><span class="p">,</span> <span class="s1">&#39;vcan0&#39;</span><span class="p">)</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="n">Message</span><span class="p">(</span><span class="n">arbitration_id</span><span class="o">=</span><span class="mh">0x01</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="sa">b</span><span class="s1">&#39;</span><span class="se">\x01\x02\x03</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">sender_socket</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">build_can_frame</span><span class="p">(</span><span class="n">msg</span><span class="p">))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Sender sent a message.&quot;</span><span class="p">)</span>
+
+    <span class="kn">import</span> <span class="nn">threading</span>
+    <span class="n">e</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Event</span><span class="p">()</span>
+    <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">receiver</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">e</span><span class="p">,))</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+    <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">sender</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">e</span><span class="p">,))</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../../can.html" >can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.socketcan.socketcan</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

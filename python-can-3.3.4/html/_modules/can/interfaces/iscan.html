@@ -1,0 +1,259 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>can.interfaces.iscan &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css" />
+    
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../can.html" accesskey="U">can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.iscan</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for can.interfaces.iscan</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Interface for isCAN from Thorsis Technologies GmbH, former ifak system GmbH.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">absolute_import</span><span class="p">,</span> <span class="n">division</span>
+
+<span class="kn">import</span> <span class="nn">ctypes</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="kn">from</span> <span class="nn">can</span> <span class="kn">import</span> <span class="n">CanError</span><span class="p">,</span> <span class="n">BusABC</span><span class="p">,</span> <span class="n">Message</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="n">CanData</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ubyte</span> <span class="o">*</span> <span class="mi">8</span>
+
+
+<span class="k">class</span> <span class="nc">MessageExStruct</span><span class="p">(</span><span class="n">ctypes</span><span class="o">.</span><span class="n">Structure</span><span class="p">):</span>
+    <span class="n">_fields_</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">(</span><span class="s2">&quot;message_id&quot;</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ulong</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;is_extended&quot;</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ubyte</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;remote_req&quot;</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ubyte</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;data_len&quot;</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ubyte</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="n">CanData</span><span class="p">),</span>
+    <span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">check_status</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">function</span><span class="p">,</span> <span class="n">arguments</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">result</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">IscanError</span><span class="p">(</span><span class="n">function</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">arguments</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">result</span>
+
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">iscan</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">cdll</span><span class="o">.</span><span class="n">LoadLibrary</span><span class="p">(</span><span class="s2">&quot;iscandrv&quot;</span><span class="p">)</span>
+<span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="n">iscan</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to load IS-CAN driver: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">iscan</span><span class="o">.</span><span class="n">isCAN_DeviceInitEx</span><span class="o">.</span><span class="n">argtypes</span> <span class="o">=</span> <span class="p">[</span><span class="n">ctypes</span><span class="o">.</span><span class="n">c_ubyte</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ubyte</span><span class="p">]</span>
+    <span class="n">iscan</span><span class="o">.</span><span class="n">isCAN_DeviceInitEx</span><span class="o">.</span><span class="n">errcheck</span> <span class="o">=</span> <span class="n">check_status</span>
+    <span class="n">iscan</span><span class="o">.</span><span class="n">isCAN_DeviceInitEx</span><span class="o">.</span><span class="n">restype</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ubyte</span>
+    <span class="n">iscan</span><span class="o">.</span><span class="n">isCAN_ReceiveMessageEx</span><span class="o">.</span><span class="n">errcheck</span> <span class="o">=</span> <span class="n">check_status</span>
+    <span class="n">iscan</span><span class="o">.</span><span class="n">isCAN_ReceiveMessageEx</span><span class="o">.</span><span class="n">restype</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ubyte</span>
+    <span class="n">iscan</span><span class="o">.</span><span class="n">isCAN_TransmitMessageEx</span><span class="o">.</span><span class="n">errcheck</span> <span class="o">=</span> <span class="n">check_status</span>
+    <span class="n">iscan</span><span class="o">.</span><span class="n">isCAN_TransmitMessageEx</span><span class="o">.</span><span class="n">restype</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ubyte</span>
+    <span class="n">iscan</span><span class="o">.</span><span class="n">isCAN_CloseDevice</span><span class="o">.</span><span class="n">errcheck</span> <span class="o">=</span> <span class="n">check_status</span>
+    <span class="n">iscan</span><span class="o">.</span><span class="n">isCAN_CloseDevice</span><span class="o">.</span><span class="n">restype</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ubyte</span>
+
+
+<div class="viewcode-block" id="IscanBus"><a class="viewcode-back" href="../../../interfaces/iscan.html#can.interfaces.iscan.IscanBus">[docs]</a><span class="k">class</span> <span class="nc">IscanBus</span><span class="p">(</span><span class="n">BusABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;isCAN interface&quot;&quot;&quot;</span>
+
+    <span class="n">BAUDRATES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="mi">5000</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="mi">10000</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="mi">20000</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="mi">50000</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="mi">100000</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>
+        <span class="mi">125000</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="mi">250000</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span>
+        <span class="mi">500000</span><span class="p">:</span> <span class="mi">7</span><span class="p">,</span>
+        <span class="mi">800000</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span>
+        <span class="mi">1000000</span><span class="p">:</span> <span class="mi">9</span>
+    <span class="p">}</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">bitrate</span><span class="o">=</span><span class="mi">500000</span><span class="p">,</span> <span class="n">poll_interval</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param int channel:</span>
+<span class="sd">            Device number</span>
+<span class="sd">        :param int bitrate:</span>
+<span class="sd">            Bitrate in bits/s</span>
+<span class="sd">        :param float poll_interval:</span>
+<span class="sd">            Poll interval in seconds when reading messages</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">iscan</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;Could not load isCAN driver&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">channel</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_ubyte</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">channel</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">channel_info</span> <span class="o">=</span> <span class="s2">&quot;IS-CAN: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">channel</span>
+
+        <span class="k">if</span> <span class="n">bitrate</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">BAUDRATES</span><span class="p">:</span>
+            <span class="n">valid_bitrates</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">bitrate</span><span class="p">)</span> <span class="k">for</span> <span class="n">bitrate</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">BAUDRATES</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid bitrate, choose one of &quot;</span> <span class="o">+</span> <span class="n">valid_bitrates</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">poll_interval</span> <span class="o">=</span> <span class="n">poll_interval</span>
+        <span class="n">iscan</span><span class="o">.</span><span class="n">isCAN_DeviceInitEx</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">BAUDRATES</span><span class="p">[</span><span class="n">bitrate</span><span class="p">])</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">IscanBus</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">channel</span><span class="o">=</span><span class="n">channel</span><span class="p">,</span> <span class="n">bitrate</span><span class="o">=</span><span class="n">bitrate</span><span class="p">,</span>
+            <span class="n">poll_interval</span><span class="o">=</span><span class="n">poll_interval</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_recv_internal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="p">):</span>
+        <span class="n">raw_msg</span> <span class="o">=</span> <span class="n">MessageExStruct</span><span class="p">()</span>
+        <span class="n">end_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">+</span> <span class="n">timeout</span> <span class="k">if</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">iscan</span><span class="o">.</span><span class="n">isCAN_ReceiveMessageEx</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">byref</span><span class="p">(</span><span class="n">raw_msg</span><span class="p">))</span>
+            <span class="k">except</span> <span class="n">IscanError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">error_code</span> <span class="o">!=</span> <span class="mi">8</span><span class="p">:</span>
+                    <span class="c1"># An error occurred</span>
+                    <span class="k">raise</span>
+                <span class="k">if</span> <span class="n">end_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">end_time</span><span class="p">:</span>
+                    <span class="c1"># No message within timeout</span>
+                    <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span>
+                <span class="c1"># Sleep a short time to avoid hammering</span>
+                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">poll_interval</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># A message was received</span>
+                <span class="k">break</span>
+
+        <span class="n">msg</span> <span class="o">=</span> <span class="n">Message</span><span class="p">(</span><span class="n">arbitration_id</span><span class="o">=</span><span class="n">raw_msg</span><span class="o">.</span><span class="n">message_id</span><span class="p">,</span>
+                      <span class="n">is_extended_id</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">raw_msg</span><span class="o">.</span><span class="n">is_extended</span><span class="p">),</span>
+                      <span class="n">timestamp</span><span class="o">=</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">(),</span>                    <span class="c1"># Better than nothing...</span>
+                      <span class="n">is_remote_frame</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">raw_msg</span><span class="o">.</span><span class="n">remote_req</span><span class="p">),</span>
+                      <span class="n">dlc</span><span class="o">=</span><span class="n">raw_msg</span><span class="o">.</span><span class="n">data_len</span><span class="p">,</span>
+                      <span class="n">data</span><span class="o">=</span><span class="n">raw_msg</span><span class="o">.</span><span class="n">data</span><span class="p">[:</span><span class="n">raw_msg</span><span class="o">.</span><span class="n">data_len</span><span class="p">],</span>
+                      <span class="n">channel</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">msg</span><span class="p">,</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">raw_msg</span> <span class="o">=</span> <span class="n">MessageExStruct</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">arbitration_id</span><span class="p">,</span>
+                                  <span class="nb">bool</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">is_extended_id</span><span class="p">),</span>
+                                  <span class="nb">bool</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">is_remote_frame</span><span class="p">),</span>
+                                  <span class="n">msg</span><span class="o">.</span><span class="n">dlc</span><span class="p">,</span>
+                                  <span class="n">CanData</span><span class="p">(</span><span class="o">*</span><span class="n">msg</span><span class="o">.</span><span class="n">data</span><span class="p">))</span>
+        <span class="n">iscan</span><span class="o">.</span><span class="n">isCAN_TransmitMessageEx</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">byref</span><span class="p">(</span><span class="n">raw_msg</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">iscan</span><span class="o">.</span><span class="n">isCAN_CloseDevice</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="IscanError"><a class="viewcode-back" href="../../../interfaces/iscan.html#can.interfaces.iscan.IscanError">[docs]</a><span class="k">class</span> <span class="nc">IscanError</span><span class="p">(</span><span class="n">CanError</span><span class="p">):</span>
+    <span class="c1"># TODO: document</span>
+
+    <span class="n">ERROR_CODES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="mi">1</span><span class="p">:</span> <span class="s2">&quot;No access to device&quot;</span><span class="p">,</span>
+        <span class="mi">2</span><span class="p">:</span> <span class="s2">&quot;Device with ID not found&quot;</span><span class="p">,</span>
+        <span class="mi">3</span><span class="p">:</span> <span class="s2">&quot;Driver operation failed&quot;</span><span class="p">,</span>
+        <span class="mi">4</span><span class="p">:</span> <span class="s2">&quot;Invalid parameter&quot;</span><span class="p">,</span>
+        <span class="mi">5</span><span class="p">:</span> <span class="s2">&quot;Operation allowed only in online state&quot;</span><span class="p">,</span>
+        <span class="mi">6</span><span class="p">:</span> <span class="s2">&quot;Device timeout&quot;</span><span class="p">,</span>
+        <span class="mi">7</span><span class="p">:</span> <span class="s2">&quot;Device is transmitting a message&quot;</span><span class="p">,</span>
+        <span class="mi">8</span><span class="p">:</span> <span class="s2">&quot;No message received&quot;</span><span class="p">,</span>
+        <span class="mi">9</span><span class="p">:</span> <span class="s2">&quot;Thread not started&quot;</span><span class="p">,</span>
+        <span class="mi">10</span><span class="p">:</span> <span class="s2">&quot;Thread already started&quot;</span><span class="p">,</span>
+        <span class="mi">11</span><span class="p">:</span> <span class="s2">&quot;Buffer overrun&quot;</span><span class="p">,</span>
+        <span class="mi">12</span><span class="p">:</span> <span class="s2">&quot;Device not initialized&quot;</span><span class="p">,</span>
+        <span class="mi">15</span><span class="p">:</span> <span class="s2">&quot;Found the device, but it is being used by another process&quot;</span><span class="p">,</span>
+        <span class="mi">16</span><span class="p">:</span> <span class="s2">&quot;Bus error&quot;</span><span class="p">,</span>
+        <span class="mi">17</span><span class="p">:</span> <span class="s2">&quot;Bus off&quot;</span><span class="p">,</span>
+        <span class="mi">18</span><span class="p">:</span> <span class="s2">&quot;Error passive&quot;</span><span class="p">,</span>
+        <span class="mi">19</span><span class="p">:</span> <span class="s2">&quot;Data overrun&quot;</span><span class="p">,</span>
+        <span class="mi">20</span><span class="p">:</span> <span class="s2">&quot;Error warning&quot;</span><span class="p">,</span>
+        <span class="mi">30</span><span class="p">:</span> <span class="s2">&quot;Send error&quot;</span><span class="p">,</span>
+        <span class="mi">31</span><span class="p">:</span> <span class="s2">&quot;Transmission not acknowledged on bus&quot;</span><span class="p">,</span>
+        <span class="mi">32</span><span class="p">:</span> <span class="s2">&quot;Error critical bus&quot;</span><span class="p">,</span>
+        <span class="mi">35</span><span class="p">:</span> <span class="s2">&quot;Callbackthread is blocked, stopping thread failed&quot;</span><span class="p">,</span>
+        <span class="mi">40</span><span class="p">:</span> <span class="s2">&quot;Need a licence number under NT4&quot;</span>
+    <span class="p">}</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">function</span><span class="p">,</span> <span class="n">error_code</span><span class="p">,</span> <span class="n">arguments</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">IscanError</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="c1"># :Status code</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">error_code</span> <span class="o">=</span> <span class="n">error_code</span>
+        <span class="c1"># :Function that failed</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">function</span> <span class="o">=</span> <span class="n">function</span>
+        <span class="c1"># :Arguments passed to function</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">arguments</span> <span class="o">=</span> <span class="n">arguments</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">description</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ERROR_CODES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">error_code</span><span class="p">,</span>
+                                           <span class="s2">&quot;Error code </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">error_code</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;Function </span><span class="si">%s</span><span class="s2"> failed: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">function</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">description</span><span class="p">)</span></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../../can.html" >can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.interfaces.iscan</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

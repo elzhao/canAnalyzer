@@ -1,0 +1,499 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>can.bus &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css" />
+    
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../can.html" accesskey="U">can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.bus</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for can.bus</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Contains the ABC bus implementation and its documentation.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">print_function</span><span class="p">,</span> <span class="n">absolute_import</span>
+
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABCMeta</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">threading</span>
+<span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">time</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">namedtuple</span>
+<span class="kn">from</span> <span class="nn">aenum</span> <span class="kn">import</span> <span class="n">Enum</span><span class="p">,</span> <span class="n">auto</span>
+
+<span class="kn">from</span> <span class="nn">.broadcastmanager</span> <span class="kn">import</span> <span class="n">ThreadBasedCyclicSendTask</span>
+
+<span class="n">LOG</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">BusState</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The state in which a :class:`can.BusABC` can be.&quot;&quot;&quot;</span>
+
+    <span class="n">ACTIVE</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
+    <span class="n">PASSIVE</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
+    <span class="n">ERROR</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="BusABC"><a class="viewcode-back" href="../../internal-api.html#can.BusABC">[docs]</a><span class="k">class</span> <span class="nc">BusABC</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The CAN Bus Abstract Base Class that serves as the basis</span>
+<span class="sd">    for all concrete interfaces.</span>
+
+<span class="sd">    This class may be used as an iterator over the received messages.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1">#: a string describing the underlying bus and/or channel</span>
+    <span class="n">channel_info</span> <span class="o">=</span> <span class="s1">&#39;unknown&#39;</span>
+
+    <span class="c1">#: Log level for received messages</span>
+    <span class="n">RECV_LOGGING_LEVEL</span> <span class="o">=</span> <span class="mi">9</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">can_filters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct and open a CAN bus instance of the specified type.</span>
+
+<span class="sd">        Subclasses should call though this method with all given parameters</span>
+<span class="sd">        as it handles generic tasks like applying filters.</span>
+
+<span class="sd">        :param channel:</span>
+<span class="sd">            The can interface identifier. Expected type is backend dependent.</span>
+
+<span class="sd">        :param list can_filters:</span>
+<span class="sd">            See :meth:`~can.BusABC.set_filters` for details.</span>
+
+<span class="sd">        :param dict kwargs:</span>
+<span class="sd">            Any backend dependent configurations are passed in this dictionary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_periodic_tasks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_filters</span><span class="p">(</span><span class="n">can_filters</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">channel_info</span>
+
+<div class="viewcode-block" id="BusABC.recv"><a class="viewcode-back" href="../../bus.html#can.BusABC.recv">[docs]</a>    <span class="k">def</span> <span class="nf">recv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Block waiting for a message from the Bus.</span>
+
+<span class="sd">        :type timeout: float or None</span>
+<span class="sd">        :param timeout:</span>
+<span class="sd">            seconds to wait for a message or None to wait indefinitely</span>
+
+<span class="sd">        :rtype: can.Message or None</span>
+<span class="sd">        :return:</span>
+<span class="sd">            None on timeout or a :class:`can.Message` object.</span>
+<span class="sd">        :raises can.CanError:</span>
+<span class="sd">            if an error occurred while reading</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+        <span class="n">time_left</span> <span class="o">=</span> <span class="n">timeout</span>
+
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+
+            <span class="c1"># try to get a message</span>
+            <span class="n">msg</span><span class="p">,</span> <span class="n">already_filtered</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recv_internal</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="n">time_left</span><span class="p">)</span>
+
+            <span class="c1"># return it, if it matches</span>
+            <span class="k">if</span> <span class="n">msg</span> <span class="ow">and</span> <span class="p">(</span><span class="n">already_filtered</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_matches_filters</span><span class="p">(</span><span class="n">msg</span><span class="p">)):</span>
+                <span class="n">LOG</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">RECV_LOGGING_LEVEL</span><span class="p">,</span> <span class="s1">&#39;Received: </span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">msg</span>
+
+            <span class="c1"># if not, and timeout is None, try indefinitely</span>
+            <span class="k">elif</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># try next one only if there still is time, and with</span>
+            <span class="c1"># reduced timeout</span>
+            <span class="k">else</span><span class="p">:</span>
+
+                <span class="n">time_left</span> <span class="o">=</span> <span class="n">timeout</span> <span class="o">-</span> <span class="p">(</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">time_left</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="kc">None</span></div>
+
+    <span class="k">def</span> <span class="nf">_recv_internal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Read a message from the bus and tell whether it was filtered.</span>
+<span class="sd">        This methods may be called by :meth:`~can.BusABC.recv`</span>
+<span class="sd">        to read a message multiple times if the filters set by</span>
+<span class="sd">        :meth:`~can.BusABC.set_filters` do not match and the call has</span>
+<span class="sd">        not yet timed out.</span>
+
+<span class="sd">        New implementations should always override this method instead of</span>
+<span class="sd">        :meth:`~can.BusABC.recv`, to be able to take advantage of the</span>
+<span class="sd">        software based filtering provided by :meth:`~can.BusABC.recv`</span>
+<span class="sd">        as a fallback. This method should never be called directly.</span>
+
+<span class="sd">        .. note::</span>
+
+<span class="sd">            This method is not an `@abstractmethod` (for now) to allow older</span>
+<span class="sd">            external implementations to continue using their existing</span>
+<span class="sd">            :meth:`~can.BusABC.recv` implementation.</span>
+
+<span class="sd">        .. note::</span>
+
+<span class="sd">            The second return value (whether filtering was already done) may</span>
+<span class="sd">            change over time for some interfaces, like for example in the</span>
+<span class="sd">            Kvaser interface. Thus it cannot be simplified to a constant value.</span>
+
+<span class="sd">        :param float timeout: seconds to wait for a message,</span>
+<span class="sd">                              see :meth:`~can.BusABC.send`</span>
+
+<span class="sd">        :rtype: tuple[can.Message, bool] or tuple[None, bool]</span>
+<span class="sd">        :return:</span>
+<span class="sd">            1.  a message that was read or None on timeout</span>
+<span class="sd">            2.  a bool that is True if message filtering has already</span>
+<span class="sd">                been done and else False</span>
+
+<span class="sd">        :raises can.CanError:</span>
+<span class="sd">            if an error occurred while reading</span>
+<span class="sd">        :raises NotImplementedError:</span>
+<span class="sd">            if the bus provides it&#39;s own :meth:`~can.BusABC.recv`</span>
+<span class="sd">            implementation (legacy implementation)</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Trying to read from a write only bus?&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="BusABC.send"><a class="viewcode-back" href="../../bus.html#can.BusABC.send">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Transmit a message to the CAN bus.</span>
+
+<span class="sd">        Override this method to enable the transmit path.</span>
+
+<span class="sd">        :param can.Message msg: A message object.</span>
+
+<span class="sd">        :type timeout: float or None</span>
+<span class="sd">        :param timeout:</span>
+<span class="sd">            If &gt; 0, wait up to this many seconds for message to be ACK&#39;ed or</span>
+<span class="sd">            for transmit queue to be ready depending on driver implementation.</span>
+<span class="sd">            If timeout is exceeded, an exception will be raised.</span>
+<span class="sd">            Might not be supported by all interfaces.</span>
+<span class="sd">            None blocks indefinitely.</span>
+
+<span class="sd">        :raises can.CanError:</span>
+<span class="sd">            if the message could not be sent</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Trying to write to a readonly bus?&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="BusABC.send_periodic"><a class="viewcode-back" href="../../bus.html#can.BusABC.send_periodic">[docs]</a>    <span class="k">def</span> <span class="nf">send_periodic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">period</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">store_task</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Start sending a message at a given period on this bus.</span>
+
+<span class="sd">        The task will be active until one of the following conditions are met:</span>
+
+<span class="sd">        - the (optional) duration expires</span>
+<span class="sd">        - the Bus instance goes out of scope</span>
+<span class="sd">        - the Bus instance is shutdown</span>
+<span class="sd">        - :meth:`BusABC.stop_all_periodic_tasks()` is called</span>
+<span class="sd">        - the task&#39;s :meth:`CyclicTask.stop()` method is called.</span>
+
+<span class="sd">        :param can.Message msg:</span>
+<span class="sd">            Message to transmit</span>
+<span class="sd">        :param float period:</span>
+<span class="sd">            Period in seconds between each message</span>
+<span class="sd">        :param float duration:</span>
+<span class="sd">            The duration to keep sending this message at given rate. If</span>
+<span class="sd">            no duration is provided, the task will continue indefinitely.</span>
+<span class="sd">        :param bool store_task:</span>
+<span class="sd">            If True (the default) the task will be attached to this Bus instance.</span>
+<span class="sd">            Disable to instead manage tasks manually.</span>
+<span class="sd">        :return:</span>
+<span class="sd">            A started task instance. Note the task can be stopped (and depending on</span>
+<span class="sd">            the backend modified) by calling the :meth:`stop` method.</span>
+<span class="sd">        :rtype: can.broadcastmanager.CyclicSendTaskABC</span>
+
+<span class="sd">        .. note::</span>
+
+<span class="sd">            Note the duration before the message stops being sent may not</span>
+<span class="sd">            be exactly the same as the duration specified by the user. In</span>
+<span class="sd">            general the message will be sent at the given rate until at</span>
+<span class="sd">            least **duration** seconds.</span>
+
+<span class="sd">        .. note::</span>
+
+<span class="sd">            For extremely long running Bus instances with many short lived tasks the default</span>
+<span class="sd">            api with ``store_task==True`` may not be appropriate as the stopped tasks are</span>
+<span class="sd">            still taking up memory as they are associated with the Bus instance.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">task</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send_periodic_internal</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">period</span><span class="p">,</span> <span class="n">duration</span><span class="p">)</span>
+        <span class="c1"># we wrap the task&#39;s stop method to also remove it from the Bus&#39;s list of tasks</span>
+        <span class="n">original_stop_method</span> <span class="o">=</span> <span class="n">task</span><span class="o">.</span><span class="n">stop</span>
+
+        <span class="k">def</span> <span class="nf">wrapped_stop_method</span><span class="p">(</span><span class="n">remove_task</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">remove_task</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_periodic_tasks</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                    <span class="k">pass</span>
+            <span class="n">original_stop_method</span><span class="p">()</span>
+        <span class="n">task</span><span class="o">.</span><span class="n">stop</span> <span class="o">=</span> <span class="n">wrapped_stop_method</span>
+
+        <span class="k">if</span> <span class="n">store_task</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_periodic_tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">task</span></div>
+
+    <span class="k">def</span> <span class="nf">_send_periodic_internal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">period</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Default implementation of periodic message sending using threading.</span>
+
+<span class="sd">        Override this method to enable a more efficient backend specific approach.</span>
+
+<span class="sd">        :param can.Message msg:</span>
+<span class="sd">            Message to transmit</span>
+<span class="sd">        :param float period:</span>
+<span class="sd">            Period in seconds between each message</span>
+<span class="sd">        :param float duration:</span>
+<span class="sd">            The duration to keep sending this message at given rate. If</span>
+<span class="sd">            no duration is provided, the task will continue indefinitely.</span>
+<span class="sd">        :return:</span>
+<span class="sd">            A started task instance. Note the task can be stopped (and depending on</span>
+<span class="sd">            the backend modified) by calling the :meth:`stop` method.</span>
+<span class="sd">        :rtype: can.broadcastmanager.CyclicSendTaskABC</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_lock_send_periodic&quot;</span><span class="p">):</span>
+            <span class="c1"># Create a send lock for this bus</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_lock_send_periodic</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+        <span class="n">task</span> <span class="o">=</span> <span class="n">ThreadBasedCyclicSendTask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock_send_periodic</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">period</span><span class="p">,</span> <span class="n">duration</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">task</span>
+
+<div class="viewcode-block" id="BusABC.stop_all_periodic_tasks"><a class="viewcode-back" href="../../bus.html#can.BusABC.stop_all_periodic_tasks">[docs]</a>    <span class="k">def</span> <span class="nf">stop_all_periodic_tasks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remove_tasks</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Stop sending any messages that were started using **bus.send_periodic**.</span>
+
+<span class="sd">        .. note::</span>
+<span class="sd">            The result is undefined if a single task throws an exception while being stopped.</span>
+
+<span class="sd">        :param bool remove_tasks:</span>
+<span class="sd">            Stop tracking the stopped tasks.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_periodic_tasks</span><span class="p">:</span>
+            <span class="c1"># we cannot let `task.stop()` modify `self._periodic_tasks` while we are</span>
+            <span class="c1"># iterating over it (#634)</span>
+            <span class="n">task</span><span class="o">.</span><span class="n">stop</span><span class="p">(</span><span class="n">remove_task</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">remove_tasks</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_periodic_tasks</span> <span class="o">=</span> <span class="p">[]</span></div>
+
+<div class="viewcode-block" id="BusABC.__iter__"><a class="viewcode-back" href="../../bus.html#can.BusABC.__iter__">[docs]</a>    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Allow iteration on messages as they are received.</span>
+
+<span class="sd">            &gt;&gt;&gt; for msg in bus:</span>
+<span class="sd">            ...     print(msg)</span>
+
+
+<span class="sd">        :yields:</span>
+<span class="sd">            :class:`can.Message` msg objects.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">msg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">msg</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">filters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Modify the filters of this bus. See :meth:`~can.BusABC.set_filters`</span>
+<span class="sd">        for details.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filters</span>
+
+    <span class="nd">@filters</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">filters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filters</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_filters</span><span class="p">(</span><span class="n">filters</span><span class="p">)</span>
+
+<div class="viewcode-block" id="BusABC.set_filters"><a class="viewcode-back" href="../../bus.html#can.BusABC.set_filters">[docs]</a>    <span class="k">def</span> <span class="nf">set_filters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filters</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply filtering to all messages received by this Bus.</span>
+
+<span class="sd">        All messages that match at least one filter are returned.</span>
+<span class="sd">        If `filters` is `None` or a zero length sequence, all</span>
+<span class="sd">        messages are matched.</span>
+
+<span class="sd">        Calling without passing any filters will reset the applied</span>
+<span class="sd">        filters to `None`.</span>
+
+<span class="sd">        :param filters:</span>
+<span class="sd">            A iterable of dictionaries each containing a &quot;can_id&quot;,</span>
+<span class="sd">            a &quot;can_mask&quot;, and an optional &quot;extended&quot; key.</span>
+
+<span class="sd">            &gt;&gt;&gt; [{&quot;can_id&quot;: 0x11, &quot;can_mask&quot;: 0x21, &quot;extended&quot;: False}]</span>
+
+<span class="sd">            A filter matches, when</span>
+<span class="sd">            ``&lt;received_can_id&gt; &amp; can_mask == can_id &amp; can_mask``.</span>
+<span class="sd">            If ``extended`` is set as well, it only matches messages where</span>
+<span class="sd">            ``&lt;received_is_extended&gt; == extended``. Else it matches every</span>
+<span class="sd">            messages based only on the arbitration ID and mask.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_filters</span> <span class="o">=</span> <span class="n">filters</span> <span class="ow">or</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_apply_filters</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_filters</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_apply_filters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filters</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Hook for applying the filters to the underlying kernel or</span>
+<span class="sd">        hardware if supported/implemented by the interface.</span>
+
+<span class="sd">        :param Iterator[dict] filters:</span>
+<span class="sd">            See :meth:`~can.BusABC.set_filters` for details.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+
+    <span class="k">def</span> <span class="nf">_matches_filters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Checks whether the given message matches at least one of the</span>
+<span class="sd">        current filters. See :meth:`~can.BusABC.set_filters` for details</span>
+<span class="sd">        on how the filters work.</span>
+
+<span class="sd">        This method should not be overridden.</span>
+
+<span class="sd">        :param can.Message msg:</span>
+<span class="sd">            the message to check if matching</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        :return: whether the given message matches at least one filter</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># if no filters are set, all messages are matched</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filters</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="k">for</span> <span class="n">_filter</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filters</span><span class="p">:</span>
+            <span class="c1"># check if this filter even applies to the message</span>
+            <span class="k">if</span> <span class="s1">&#39;extended&#39;</span> <span class="ow">in</span> <span class="n">_filter</span> <span class="ow">and</span> \
+                    <span class="n">_filter</span><span class="p">[</span><span class="s1">&#39;extended&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="n">msg</span><span class="o">.</span><span class="n">is_extended_id</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># then check for the mask and id</span>
+            <span class="n">can_id</span> <span class="o">=</span> <span class="n">_filter</span><span class="p">[</span><span class="s1">&#39;can_id&#39;</span><span class="p">]</span>
+            <span class="n">can_mask</span> <span class="o">=</span> <span class="n">_filter</span><span class="p">[</span><span class="s1">&#39;can_mask&#39;</span><span class="p">]</span>
+
+            <span class="c1"># basically, we compute</span>
+            <span class="c1"># `msg.arbitration_id &amp; can_mask == can_id &amp; can_mask`</span>
+            <span class="c1"># by using the shorter, but equivalent from below:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">can_id</span> <span class="o">^</span> <span class="n">msg</span><span class="o">.</span><span class="n">arbitration_id</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">can_mask</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="c1"># nothing matched</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="BusABC.flush_tx_buffer"><a class="viewcode-back" href="../../bus.html#can.BusABC.flush_tx_buffer">[docs]</a>    <span class="k">def</span> <span class="nf">flush_tx_buffer</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Discard every message that may be queued in the output buffer(s).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="BusABC.shutdown"><a class="viewcode-back" href="../../bus.html#can.BusABC.shutdown">[docs]</a>    <span class="k">def</span> <span class="nf">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Called to carry out any interface specific cleanup required</span>
+<span class="sd">        in shutting down a bus.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+    <span class="k">def</span> <span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">,</span> <span class="n">exc_val</span><span class="p">,</span> <span class="n">exc_tb</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the current state of the hardware</span>
+
+<span class="sd">        :type: can.BusState</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">BusState</span><span class="o">.</span><span class="n">ACTIVE</span>
+
+    <span class="nd">@state</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_state</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Set the new state of the hardware</span>
+
+<span class="sd">        :type: can.BusState</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Property is not implemented.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_detect_available_configs</span><span class="p">():</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Detect all configurations/channels that this interface could</span>
+<span class="sd">        currently connect with.</span>
+
+<span class="sd">        This might be quite time consuming.</span>
+
+<span class="sd">        May not to be implemented by every interface on every platform.</span>
+
+<span class="sd">        :rtype: Iterator[dict]</span>
+<span class="sd">        :return: an iterable of dicts, each being a configuration suitable</span>
+<span class="sd">                 for usage in the interface&#39;s bus constructor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+    <span class="n">__metaclass__</span> <span class="o">=</span> <span class="n">ABCMeta</span></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">python-can 3.3.4 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../can.html" >can</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">can.bus</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

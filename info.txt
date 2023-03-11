@@ -1,0 +1,57 @@
+本上位机例程使用pyqt5编写，在启动运行之前，请执行以下命令：
+pip install pyqt5 -i https://pypi.tuna.tsinghua.edu.cn/simple
+在linux下如果提示找不到pip，请运行：sudo apt-get install python3-pip
+在linux下如果提示Could not load the Qt platform plugin "xcb"，请运行：sudo apt-get install libxcb-xinerama0
+在linux下如果找不到已插入的BUSMUST设备，请使用sudo运行run启动器
+
+
+
+can_analyzer_pyqt: pyqt窗口例程，基于python-can-3.3.4接口，实现了4路can的发送接收，录制文件(trc格式)以及文件回放的功能，可直接运行can_analyzer_pyqt/run.bat启动窗口
+python-can-3.3.4: Python-can扩展包，使用标准的python-can接口，支持BUSMUST全部系列产品，可在Windows和Ubuntu下使用
+
+
+
+1.需要编辑或调试程序时，请使用VSCODE，执行菜单File->Open Folder直接打开can_analyzer_pyqt文件夹，按F5即可启动程序，如需调整启动选项，请编辑.vscode/launch.json
+2.如果启动抛出aenum不识别的异常，请先pip install aenum后重试
+3.请务必确保python-can-3.3.4文件夹与can_analyzer_pyqt文件夹是在相同的上一层目录下的，否则Python原生的python-can包中不包含bmcan模块
+
+
+
+界面说明：
+Channel: 连接BUSMUST后，会显示4路channel，点击Enumerate刷新，选择后点Open打开channel
+T-Res: 使能120欧姆CAN终端电阻
+CAN Mode: 
+	Normal: 能收能发，支持CAN FD帧
+	Classic: 不支持CAN FD帧
+	Loopback: 只接收自己发送的消息
+	ListenOnly: 只收不发
+Nominal kbps: 比特率
+Data kbps: CAN FD比特率
+SamplePos: CAN FD数据采样点
+RX ID: 设置接收报文过滤的ID
+MASK: 设置接收报文过滤的掩码
+Accept Std: 显示所有帧（标准帧，扩展帧）
+Accept Ex: 只显示扩展帧率
+Adcanced RX Filter: 目前不支持
+Data Mask: 目前不支持
+TX ID: 需要发送的CAN ID
+Type: 暂时无用
+FD: 是否是CAN FD报文
+Ext: 是否是扩展帧
+Cycle(ms): 循环发送报文的间隔时间
+CH: 通过哪个channel发送报文，回放（发送文件）时也是根据这个选择对应channel
+Count: 发送报文循环次数
+DLC: 报文长度
+Data: 需要发送的报文
+Open: 打开CAN
+Enumerate: 刷新channel
+Transmit: 发送报文
+Record: 点击后选择录制的文件，后续收到的CAN报文都会报文中在文件中
+SendFile: 回放文件，点击后选择trc文件开始回放
+StopFile: 停止回放
+
+
+
+
+
+

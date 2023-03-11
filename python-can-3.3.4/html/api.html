@@ -1,0 +1,255 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Library API &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Bus" href="bus.html" />
+    <link rel="prev" title="Configuration" href="configuration.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="bus.html" title="Bus"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="configuration.html" title="Configuration"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">python-can 3.3.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Library API</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="library-api">
+<h1>Library API<a class="headerlink" href="#library-api" title="Permalink to this heading">¶</a></h1>
+<p>The main objects are the <a class="reference internal" href="bus.html#can.BusABC" title="can.BusABC"><code class="xref py py-class docutils literal notranslate"><span class="pre">BusABC</span></code></a> and the <a class="reference internal" href="message.html#can.Message" title="can.Message"><code class="xref py py-class docutils literal notranslate"><span class="pre">Message</span></code></a>.
+A form of CAN interface is also required.</p>
+<div class="admonition hint">
+<p class="admonition-title">Hint</p>
+<p>Check the backend specific documentation for any implementation specific details.</p>
+</div>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="bus.html">Bus</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bus.html#thread-safe-bus">Thread safe bus</a></li>
+<li class="toctree-l1"><a class="reference internal" href="message.html">Message</a></li>
+<li class="toctree-l1"><a class="reference internal" href="listeners.html">Listeners</a></li>
+<li class="toctree-l1"><a class="reference internal" href="asyncio.html">Asyncio support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bcm.html">Broadcast Manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="internal-api.html">Internal API</a></li>
+</ul>
+</div>
+<section id="utilities">
+<h2>Utilities<a class="headerlink" href="#utilities" title="Permalink to this heading">¶</a></h2>
+</section>
+<section id="notifier">
+<span id="id1"></span><h2>Notifier<a class="headerlink" href="#notifier" title="Permalink to this heading">¶</a></h2>
+<p>The Notifier object is used as a message distributor for a bus.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.Notifier">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">Notifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bus</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">listeners</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/notifier.html#Notifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.Notifier" title="Permalink to this definition">¶</a></dt>
+<dd><p>Manages the distribution of <a class="reference internal" href="message.html#can.Message" title="can.Message"><code class="xref py py-class docutils literal notranslate"><span class="pre">can.Message</span></code></a> instances to listeners.</p>
+<p>Supports multiple buses and listeners.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Remember to call <cite>stop()</cite> after all messages are received as
+many listeners carry out flush operations to persist data.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bus</strong> (<a class="reference internal" href="bus.html#can.BusABC" title="can.BusABC"><em>can.BusABC</em></a>) – A <a class="reference internal" href="bus.html#bus"><span class="std std-ref">Bus</span></a> or a list of buses to listen to.</p></li>
+<li><p><strong>listeners</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a>) – An iterable of <a class="reference internal" href="listeners.html#can.Listener" title="can.Listener"><code class="xref py py-class docutils literal notranslate"><span class="pre">Listener</span></code></a></p></li>
+<li><p><strong>timeout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – An optional maximum number of seconds to wait for any message.</p></li>
+<li><p><strong>loop</strong> (<a class="reference external" href="https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.AbstractEventLoop" title="(in Python v3.11)"><em>asyncio.AbstractEventLoop</em></a>) – An <a class="reference external" href="https://docs.python.org/3/library/asyncio.html#module-asyncio" title="(in Python v3.11)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">asyncio</span></code></a> event loop to schedule listeners in.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="can.Notifier.add_bus">
+<span class="sig-name descname"><span class="pre">add_bus</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bus</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/notifier.html#Notifier.add_bus"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.Notifier.add_bus" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add a bus for notification.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>bus</strong> (<a class="reference internal" href="bus.html#can.BusABC" title="can.BusABC"><em>can.BusABC</em></a>) – CAN bus instance.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.Notifier.add_listener">
+<span class="sig-name descname"><span class="pre">add_listener</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">listener</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/notifier.html#Notifier.add_listener"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.Notifier.add_listener" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add new Listener to the notification list.
+If it is already present, it will be called two times
+each time a message arrives.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>listener</strong> (<a class="reference internal" href="listeners.html#can.Listener" title="can.Listener"><em>can.Listener</em></a>) – Listener to be added to
+the list to be notified</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="can.Notifier.exception">
+<span class="sig-name descname"><span class="pre">exception</span></span><a class="headerlink" href="#can.Notifier.exception" title="Permalink to this definition">¶</a></dt>
+<dd><p>Exception raised in thread</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.Notifier.remove_listener">
+<span class="sig-name descname"><span class="pre">remove_listener</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">listener</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/notifier.html#Notifier.remove_listener"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.Notifier.remove_listener" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove a listener from the notification list. This method
+trows an exception if the given listener is not part of the
+stored listeners.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>listener</strong> (<a class="reference internal" href="listeners.html#can.Listener" title="can.Listener"><em>can.Listener</em></a>) – Listener to be removed from
+the list to be notified</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – if <cite>listener</cite> was never added to this notifier</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="can.Notifier.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/can/notifier.html#Notifier.stop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.Notifier.stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stop notifying Listeners when new <a class="reference internal" href="message.html#can.Message" title="can.Message"><code class="xref py py-class docutils literal notranslate"><span class="pre">Message</span></code></a> objects arrive
+and call <a class="reference internal" href="listeners.html#can.Listener.stop" title="can.Listener.stop"><code class="xref py py-meth docutils literal notranslate"><span class="pre">stop()</span></code></a> on each Listener.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>timeout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – Max time in seconds to wait for receive threads to finish.
+Should be longer than timeout given at instantiation.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="errors">
+<h2>Errors<a class="headerlink" href="#errors" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="can.CanError">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">can.</span></span><span class="sig-name descname"><span class="pre">CanError</span></span><a class="reference internal" href="_modules/can.html#CanError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#can.CanError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Indicates an error with the CAN network.</p>
+</dd></dl>
+
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Library API</a><ul>
+<li><a class="reference internal" href="#utilities">Utilities</a></li>
+<li><a class="reference internal" href="#notifier">Notifier</a><ul>
+<li><a class="reference internal" href="#can.Notifier"><code class="docutils literal notranslate"><span class="pre">Notifier</span></code></a><ul>
+<li><a class="reference internal" href="#can.Notifier.add_bus"><code class="docutils literal notranslate"><span class="pre">Notifier.add_bus()</span></code></a></li>
+<li><a class="reference internal" href="#can.Notifier.add_listener"><code class="docutils literal notranslate"><span class="pre">Notifier.add_listener()</span></code></a></li>
+<li><a class="reference internal" href="#can.Notifier.exception"><code class="docutils literal notranslate"><span class="pre">Notifier.exception</span></code></a></li>
+<li><a class="reference internal" href="#can.Notifier.remove_listener"><code class="docutils literal notranslate"><span class="pre">Notifier.remove_listener()</span></code></a></li>
+<li><a class="reference internal" href="#can.Notifier.stop"><code class="docutils literal notranslate"><span class="pre">Notifier.stop()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#errors">Errors</a><ul>
+<li><a class="reference internal" href="#can.CanError"><code class="docutils literal notranslate"><span class="pre">CanError</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="configuration.html"
+                          title="previous chapter">Configuration</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="bus.html"
+                          title="next chapter">Bus</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/api.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="bus.html" title="Bus"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="configuration.html" title="Configuration"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">python-can 3.3.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Library API</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>

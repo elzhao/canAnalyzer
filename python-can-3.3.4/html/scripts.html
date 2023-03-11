@@ -1,0 +1,351 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Scripts &#8212; python-can 3.3.4 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Developer’s Overview" href="development.html" />
+    <link rel="prev" title="SYSTEC interface" href="interfaces/systec.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="development.html" title="Developer’s Overview"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="interfaces/systec.html" title="SYSTEC interface"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">python-can 3.3.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Scripts</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="scripts">
+<h1>Scripts<a class="headerlink" href="#scripts" title="Permalink to this heading">¶</a></h1>
+<p>The following modules are callable from python-can.</p>
+<p>They can be called for example by <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">can.logger</span></code> or <code class="docutils literal notranslate"><span class="pre">can_logger.py</span></code> (if installed using pip).</p>
+<section id="can-logger">
+<h2>can.logger<a class="headerlink" href="#can-logger" title="Permalink to this heading">¶</a></h2>
+<p>Command line help, called with <code class="docutils literal notranslate"><span class="pre">--help</span></code>:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ python -m can.logger -h
+usage: logger.py [-h] [-c CHANNEL]
+                 [-i {canalystii,cantact,etas,gs_usb,iscan,ixxat,kvaser,neousys,neovi,nican,nixnet,pcan,robotell,seeedstudio,serial,slcan,socketcan,socketcand,systec,udp_multicast,usb2can,vector,virtual}]
+                 [-b BITRATE] [--fd] [--data_bitrate DATA_BITRATE]
+                 [-f LOG_FILE] [-a] [-s FILE_SIZE] [-v]
+                 [--filter {&lt;can_id&gt;:&lt;can_mask&gt;,&lt;can_id&gt;~&lt;can_mask&gt;} [{&lt;can_id&gt;:&lt;can_mask&gt;,&lt;can_id&gt;~&lt;can_mask&gt;} ...]]
+                 [--active | --passive]
+                 ...
+
+Log CAN traffic, printing messages to stdout or to a given file.
+
+positional arguments:
+  extra_args            The remaining arguments will be used for the interface
+                        and logger/player initialisation. For example, `-i
+                        vector -c 1 --app-name=MyCanApp` is the equivalent to
+                        opening the bus with `Bus(&#39;vector&#39;, channel=1,
+                        app_name=&#39;MyCanApp&#39;)
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -c CHANNEL, --channel CHANNEL
+                        Most backend interfaces require some sort of channel.
+                        For example with the serial interface the channel
+                        might be a rfcomm device: &quot;/dev/rfcomm0&quot;. With the
+                        socketcan interface valid channel examples include:
+                        &quot;can0&quot;, &quot;vcan0&quot;.
+  -i {canalystii,cantact,etas,gs_usb,iscan,ixxat,kvaser,neousys,neovi,nican,nixnet,pcan,robotell,seeedstudio,serial,slcan,socketcan,socketcand,systec,udp_multicast,usb2can,vector,virtual}, --interface {canalystii,cantact,etas,gs_usb,iscan,ixxat,kvaser,neousys,neovi,nican,nixnet,pcan,robotell,seeedstudio,serial,slcan,socketcan,socketcand,systec,udp_multicast,usb2can,vector,virtual}
+                        Specify the backend CAN interface to use. If left
+                        blank, fall back to reading from configuration files.
+  -b BITRATE, --bitrate BITRATE
+                        Bitrate to use for the CAN bus.
+  --fd                  Activate CAN-FD support
+  --data_bitrate DATA_BITRATE
+                        Bitrate to use for the data phase in case of CAN-FD.
+  -f LOG_FILE, --file_name LOG_FILE
+                        Path and base log filename, for supported types see
+                        can.Logger.
+  -a, --append          Append to the log file if it already exists.
+  -s FILE_SIZE, --file_size FILE_SIZE
+                        Maximum file size in bytes. Rotate log file when size
+                        threshold is reached. (The resulting file sizes will
+                        be consistent, but are not guaranteed to be exactly
+                        what is specified here due to the rollover conditions
+                        being logger implementation specific.)
+  -v                    How much information do you want to see at the command
+                        line? You can add several of these e.g., -vv is DEBUG
+  --filter {&lt;can_id&gt;:&lt;can_mask&gt;,&lt;can_id&gt;~&lt;can_mask&gt;} [{&lt;can_id&gt;:&lt;can_mask&gt;,&lt;can_id&gt;~&lt;can_mask&gt;} ...]
+                        R|Space separated CAN filters for the given CAN
+                        interface: &lt;can_id&gt;:&lt;can_mask&gt; (matches when
+                        &lt;received_can_id&gt; &amp; mask == can_id &amp; mask)
+                        &lt;can_id&gt;~&lt;can_mask&gt; (matches when &lt;received_can_id&gt; &amp;
+                        mask != can_id &amp; mask) Fx to show only frames with ID
+                        0x100 to 0x103 and 0x200 to 0x20F: python -m
+                        can.viewer -f 100:7FC 200:7F0 Note that the ID and
+                        mask are always interpreted as hex values
+  --active              Start the bus as active, this is applied by default.
+  --passive             Start the bus as passive.
+</pre></div>
+</div>
+</section>
+<section id="can-player">
+<h2>can.player<a class="headerlink" href="#can-player" title="Permalink to this heading">¶</a></h2>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ python -m can.player -h
+usage: player.py [-h] [-c CHANNEL]
+                 [-i {canalystii,cantact,etas,gs_usb,iscan,ixxat,kvaser,neousys,neovi,nican,nixnet,pcan,robotell,seeedstudio,serial,slcan,socketcan,socketcand,systec,udp_multicast,usb2can,vector,virtual}]
+                 [-b BITRATE] [--fd] [--data_bitrate DATA_BITRATE]
+                 [-f LOG_FILE] [-v] [--ignore-timestamps] [--error-frames]
+                 [-g GAP] [-s SKIP]
+                 ... input-file
+
+Replay CAN traffic.
+
+positional arguments:
+  extra_args            The remaining arguments will be used for the interface
+                        and logger/player initialisation. For example, `-i
+                        vector -c 1 --app-name=MyCanApp` is the equivalent to
+                        opening the bus with `Bus(&#39;vector&#39;, channel=1,
+                        app_name=&#39;MyCanApp&#39;)
+  input-file            The file to replay. For supported types see
+                        can.LogReader.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -c CHANNEL, --channel CHANNEL
+                        Most backend interfaces require some sort of channel.
+                        For example with the serial interface the channel
+                        might be a rfcomm device: &quot;/dev/rfcomm0&quot;. With the
+                        socketcan interface valid channel examples include:
+                        &quot;can0&quot;, &quot;vcan0&quot;.
+  -i {canalystii,cantact,etas,gs_usb,iscan,ixxat,kvaser,neousys,neovi,nican,nixnet,pcan,robotell,seeedstudio,serial,slcan,socketcan,socketcand,systec,udp_multicast,usb2can,vector,virtual}, --interface {canalystii,cantact,etas,gs_usb,iscan,ixxat,kvaser,neousys,neovi,nican,nixnet,pcan,robotell,seeedstudio,serial,slcan,socketcan,socketcand,systec,udp_multicast,usb2can,vector,virtual}
+                        Specify the backend CAN interface to use. If left
+                        blank, fall back to reading from configuration files.
+  -b BITRATE, --bitrate BITRATE
+                        Bitrate to use for the CAN bus.
+  --fd                  Activate CAN-FD support
+  --data_bitrate DATA_BITRATE
+                        Bitrate to use for the data phase in case of CAN-FD.
+  -f LOG_FILE, --file_name LOG_FILE
+                        Path and base log filename, for supported types see
+                        can.LogReader.
+  -v                    Also print can frames to stdout. You can add several
+                        of these to enable debugging
+  --ignore-timestamps   Ignore timestamps (send all frames immediately with
+                        minimum gap between frames)
+  --error-frames        Also send error frames to the interface.
+  -g GAP, --gap GAP     &lt;s&gt; minimum time between replayed frames
+  -s SKIP, --skip SKIP  &lt;s&gt; skip gaps greater than &#39;s&#39; seconds
+</pre></div>
+</div>
+</section>
+<section id="can-viewer">
+<h2>can.viewer<a class="headerlink" href="#can-viewer" title="Permalink to this heading">¶</a></h2>
+<p>A screenshot of the application can be seen below:</p>
+<a class="reference internal image-reference" href="_images/viewer.png"><img alt="_images/viewer.png" src="_images/viewer.png" style="width: 100%;" /></a>
+<p>The first column is the number of times a frame with the particular ID that has been received, next is the timestamp of the frame relative to the first received message. The third column is the time between the current frame relative to the previous one. Next is the length of the frame, the data and then the decoded data converted according to the <code class="docutils literal notranslate"><span class="pre">-d</span></code> argument. The top red row indicates an error frame.</p>
+<section id="command-line-arguments">
+<h3>Command line arguments<a class="headerlink" href="#command-line-arguments" title="Permalink to this heading">¶</a></h3>
+<p>By default the <code class="docutils literal notranslate"><span class="pre">can.viewer</span></code> uses the <a class="reference internal" href="interfaces/socketcan.html"><span class="doc">SocketCAN</span></a> interface. All interfaces are supported and can be specified using the <code class="docutils literal notranslate"><span class="pre">-i</span></code> argument or configured following <a class="reference internal" href="configuration.html"><span class="doc">Configuration</span></a>.</p>
+<p>The full usage page can be seen below:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ python -m can.viewer -h
+You won&#39;t be able to use the viewer program without curses installed!
+Usage: python -m can.viewer [-c CHANNEL]
+                            [-i {canalystii,cantact,etas,gs_usb,iscan,ixxat,kvaser,neousys,neovi,nican,nixnet,pcan,robotell,seeedstudio,serial,slcan,socketcan,socketcand,systec,udp_multicast,usb2can,vector,virtual}]
+                            [-b BITRATE] [--fd] [--data_bitrate DATA_BITRATE]
+                            [-h] [--version]
+                            [-d &#39;{&lt;id&gt;:&lt;format&gt;,&lt;id&gt;:&lt;format&gt;:&lt;scaling1&gt;:...:&lt;scalingN&gt;,file.txt}&#39;,)]
+                            [-f (&#39;{&lt;can_id&gt;:&lt;can_mask&gt;,&lt;can_id&gt;~&lt;can_mask&gt;}&#39;,]
+                            [-v]
+                            &#39;extra_args&#39;,
+
+A simple CAN viewer terminal application written in Python
+
+positional arguments:
+  extra_args            The remaining arguments will be used for the interface
+                        and logger/player initialisation. For example, `-i
+                        vector -c 1 --app-name=MyCanApp` is the equivalent to
+                        opening the bus with `Bus(&#39;vector&#39;, channel=1,
+                        app_name=&#39;MyCanApp&#39;)
+
+optional arguments:
+  -c, --channel CHANNEL
+                        Most backend interfaces require some sort of channel.
+                        For example with the serial interface the channel
+                        might be a rfcomm device: &quot;/dev/rfcomm0&quot;. With the
+                        socketcan interface valid channel examples include:
+                        &quot;can0&quot;, &quot;vcan0&quot;.
+  -i, --interface {canalystii,cantact,etas,gs_usb,iscan,ixxat,kvaser,neousys,neovi,nican,nixnet,pcan,robotell,seeedstudio,serial,slcan,socketcan,socketcand,systec,udp_multicast,usb2can,vector,virtual}
+                        Specify the backend CAN interface to use. If left
+                        blank, fall back to reading from configuration files.
+  -b, --bitrate BITRATE
+                        Bitrate to use for the CAN bus.
+  --fd                  Activate CAN-FD support
+  --data_bitrate DATA_BITRATE
+                        Bitrate to use for the data phase in case of CAN-FD.
+
+Optional arguments:
+  -h, --help            Show this help message and exit
+  --version             Show program&#39;s version number and exit
+  -d, --decode (&#39;{&lt;id&gt;:&lt;format&gt;,&lt;id&gt;:&lt;format&gt;:&lt;scaling1&gt;:...:&lt;scalingN&gt;,file.txt}&#39;,)
+                        Specify how to convert the raw bytes into real values.
+                        The ID of the frame is given as the first argument and the format as the second.
+                        The Python struct package is used to unpack the received data
+                        where the format characters have the following meaning:
+                              &lt; = little-endian, &gt; = big-endian
+                              x = pad byte
+                              c = char
+                              ? = bool
+                              b = int8_t, B = uint8_t
+                              h = int16, H = uint16
+                              l = int32_t, L = uint32_t
+                              q = int64_t, Q = uint64_t
+                              f = float (32-bits), d = double (64-bits)
+                        Fx to convert six bytes with ID 0x100 into uint8_t, uint16 and uint32_t:
+                          $ python -m can.viewer -d &quot;100:&lt;BHL&quot;
+                        Note that the IDs are always interpreted as hex values.
+                        An optional conversion from integers to real units can be given
+                        as additional arguments. In order to convert from raw integer
+                        values the values are divided with the corresponding scaling value,
+                        similarly the values are multiplied by the scaling value in order
+                        to convert from real units to raw integer values.
+                        Fx lets say the uint8_t needs no conversion, but the uint16 and the uint32_t
+                        needs to be divided by 10 and 100 respectively:
+                          $ python -m can.viewer -d &quot;101:&lt;BHL:1:10.0:100.0&quot;
+                        Be aware that integer division is performed if the scaling value is an integer.
+                        Multiple arguments are separated by spaces:
+                          $ python -m can.viewer -d &quot;100:&lt;BHL&quot; &quot;101:&lt;BHL:1:10.0:100.0&quot;
+                        Alternatively a file containing the conversion strings separated by new lines
+                        can be given as input:
+                          $ cat file.txt
+                              100:&lt;BHL
+                              101:&lt;BHL:1:10.0:100.0
+                          $ python -m can.viewer -d file.txt
+  -f, --filter (&#39;{&lt;can_id&gt;:&lt;can_mask&gt;,&lt;can_id&gt;~&lt;can_mask&gt;}&#39;,)
+                        Space separated CAN filters for the given CAN interface:
+                              &lt;can_id&gt;:&lt;can_mask&gt; (matches when &lt;received_can_id&gt; &amp; mask == can_id &amp; mask)
+                              &lt;can_id&gt;~&lt;can_mask&gt; (matches when &lt;received_can_id&gt; &amp; mask != can_id &amp; mask)
+                        Fx to show only frames with ID 0x100 to 0x103 and 0x200 to 0x20F:
+                              python -m can.viewer -f 100:7FC 200:7F0
+                        Note that the ID and mask are always interpreted as hex values
+  -v                    How much information do you want to see at the command
+                        line? You can add several of these e.g., -vv is DEBUG
+
+Shortcuts: 
+        +---------+-------------------------------+
+        |   Key   |       Description             |
+        +---------+-------------------------------+
+        | ESQ/q   | Exit the viewer               |
+        | c       | Clear the stored frames       |
+        | s       | Sort the stored frames        |
+        | h       | Toggle highlight byte changes |
+        | SPACE   | Pause the viewer              |
+        | UP/DOWN | Scroll the viewer             |
+        +---------+-------------------------------+
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Scripts</a><ul>
+<li><a class="reference internal" href="#can-logger">can.logger</a></li>
+<li><a class="reference internal" href="#can-player">can.player</a></li>
+<li><a class="reference internal" href="#can-viewer">can.viewer</a><ul>
+<li><a class="reference internal" href="#command-line-arguments">Command line arguments</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="interfaces/systec.html"
+                          title="previous chapter">SYSTEC interface</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="development.html"
+                          title="next chapter">Developer’s Overview</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/scripts.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="development.html" title="Developer’s Overview"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="interfaces/systec.html" title="SYSTEC interface"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">python-can 3.3.4 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Scripts</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright .
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 6.1.3.
+    </div>
+  </body>
+</html>
